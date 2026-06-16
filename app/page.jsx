@@ -2,8 +2,21 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { SIZE, emptyBoard, findWin, other, applyMove, freshGameState } from "../lib/gomoku.js";
 import { chooseMove, LEVELS } from "../lib/ai.js";
+import ChatPanel from "./ChatPanel.jsx";
 
 const freshGame = () => freshGameState("black");
+
+function useIsWide(bp = 820) {
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    const m = window.matchMedia(`(min-width:${bp}px)`);
+    const on = () => setWide(m.matches);
+    on();
+    m.addEventListener ? m.addEventListener("change", on) : m.addListener(on);
+    return () => (m.removeEventListener ? m.removeEventListener("change", on) : m.removeListener(on));
+  }, [bp]);
+  return wide;
+}
 
 async function postLobby(body) {
   const res = await fetch("/api/lobby", {
@@ -18,7 +31,7 @@ async function postLobby(body) {
 }
 
 export default function GomokuAI() {
-  const [screen, setScreen] = useState("lobby"); // lobby | waiting | game
+  const [screen, setScreen] = useState("lobby"); // lobby | waiting | game | leaderboard
   const [mode, setMode] = useState("ai");        // ai | local | online
   const [level, setLevel] = useState(3);
   const [humanColor, setHumanColor] = useState("black");
@@ -26,6 +39,7 @@ export default function GomokuAI() {
   const [thinking, setThinking] = useState(false);
 
   // online
+  const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [joinInput, setJoinInput] = useState("");
   const [netError, setNetError] = useState("");
@@ -33,11 +47,17 @@ export default function GomokuAI() {
   const playerIdRef = useRef("");
   const versionRef = useRef(0);
 
+  // leaderboard
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [lbLoading, setLbLoading] = useState(false);
+
+  const wide = useIsWide();
   const aiColor = other(humanColor);
   const onlineColor = g.players
     ? (g.players.black === playerIdRef.current ? "black"
       : g.players.white === playerIdRef.current ? "white" : null)
     : null;
+  const oppName = (g.names ? (onlineColor === "black" ? g.names.white : g.names.black) : null) || "Opponent";
 
   useEffect(() => { versionRef.current = g.version || 0; }, [g.version]);
 
@@ -57,7 +77,7 @@ export default function GomokuAI() {
     } catch { /* offline; ignore */ }
   }, []);
 
-  // identity + reconnect on first load
+  // identity + saved name + reconnect on first load
   useEffect(() => {
     let id = localStorage.getItem("gomoku_pid");
     if (!id) {
@@ -65,9 +85,13 @@ export default function GomokuAI() {
       localStorage.setItem("gomoku_pid", id);
     }
     playerIdRef.current = id;
+    const savedName = localStorage.getItem("gomoku_name");
+    if (savedName) setName(savedName);
     const savedCode = localStorage.getItem("gomoku_code");
     if (savedCode) reconnect(savedCode);
   }, [reconnect]);
+
+  useEffect(() => { if (name) localStorage.setItem("gomoku_name", name); }, [name]);
 
   // AI turn handler (vs-computer only)
   useEffect(() => {
@@ -134,7 +158,7 @@ export default function GomokuAI() {
   const createOnline = async () => {
     setNetError("");
     try {
-      const data = await api({ action: "create" });
+      const data = await api({ action: "create", name });
       setMode("online"); setCode(data.code); setG(data.state);
       localStorage.setItem("gomoku_code", data.code);
       setScreen("waiting");
@@ -146,7 +170,7 @@ export default function GomokuAI() {
     if (c.length < 4) { setNetError("Enter the 4-letter code"); return; }
     setNetError("");
     try {
-      const data = await api({ action: "join", code: c });
+      const data = await api({ action: "join", code: c, name });
       setMode("online"); setCode(c); setG(data.state);
       localStorage.setItem("gomoku_code", c);
       setScreen(data.state.players.white ? "game" : "waiting");
@@ -167,6 +191,17 @@ export default function GomokuAI() {
 
   const resignOnline = () => api({ action: "resign", code }).then((d) => d && setG(d.state)).catch(() => {});
   const rematchOnline = () => api({ action: "rematch", code }).then((d) => d && setG(d.state)).catch(() => {});
+  const sendChat = (text) => api({ action: "chat", code, text }).then((d) => d && setG(d.state)).catch(() => {});
+
+  const openLeaderboard = async () => {
+    setScreen("leaderboard"); setLbLoading(true);
+    try {
+      const res = await fetch("/api/leaderboard?top=20");
+      const d = await res.json();
+      setLeaderboard(d.leaderboard || []);
+    } catch { setLeaderboard([]); }
+    finally { setLbLoading(false); }
+  };
 
   const copyCode = () => {
     navigator.clipboard?.writeText(code).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }).catch(() => {});
@@ -180,6 +215,17 @@ export default function GomokuAI() {
         <p style={{ fontSize: 13, color: "#9b948a", margin: "0 0 26px" }}>Five in a row</p>
 
         <div style={{ width: "100%", maxWidth: 340, display: "flex", flexDirection: "column", gap: 22 }}>
+          <div>
+            <div style={label}>Your name</div>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value.slice(0, 16))}
+              placeholder="Your name"
+              maxLength={16}
+              style={{ width: "100%", boxSizing: "border-box", padding: "11px 13px", borderRadius: 9, border: "1px solid #3a3530", background: "#262320", color: "#f2ede4", fontSize: 15, fontWeight: 600 }}
+            />
+          </div>
+
           <div>
             <div style={label}>Play online</div>
             <button onClick={createOnline} style={primaryBtn}>Create game · get a code</button>
@@ -196,6 +242,8 @@ export default function GomokuAI() {
             </div>
             {netError && <div style={{ color: "#e0533a", fontSize: 12, marginTop: 8 }}>{netError}</div>}
           </div>
+
+          <button onClick={openLeaderboard} style={secondaryBtn}>🏆 Leaderboard</button>
 
           <div style={{ display: "flex", alignItems: "center", gap: 12, color: "#5a544c", fontSize: 12 }}>
             <div style={{ flex: 1, height: 1, background: "#3a3530" }} /> OR <div style={{ flex: 1, height: 1, background: "#3a3530" }} />
@@ -247,6 +295,50 @@ export default function GomokuAI() {
     );
   }
 
+  // ---------- LEADERBOARD ----------
+  if (screen === "leaderboard") {
+    return (
+      <div style={wrap}>
+        <div style={{ width: "100%", maxWidth: 440, display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+          <button onClick={() => setScreen("lobby")} style={ghostBtn}>← Menu</button>
+          <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>🏆 Leaderboard</h1>
+          <div style={{ width: 52 }} />
+        </div>
+        <div style={{ width: "100%", maxWidth: 440 }}>
+          {lbLoading ? (
+            <div style={{ color: "#9b948a", fontSize: 14, textAlign: "center", padding: 30 }}>Loading…</div>
+          ) : leaderboard.length === 0 ? (
+            <div style={{ color: "#9b948a", fontSize: 14, textAlign: "center", padding: 30 }}>
+              No games yet — play someone online to get on the board.
+            </div>
+          ) : (
+            <div style={{ border: "1px solid #3a3530", borderRadius: 10, overflow: "hidden" }}>
+              <div style={{ display: "flex", padding: "10px 14px", background: "#262320", fontSize: 11, color: "#9b948a", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                <span style={{ width: 32 }}>#</span>
+                <span style={{ flex: 1 }}>Player</span>
+                <span style={{ width: 44, textAlign: "right" }}>W</span>
+                <span style={{ width: 44, textAlign: "right" }}>L</span>
+                <span style={{ width: 56, textAlign: "right" }}>Win%</span>
+              </div>
+              {leaderboard.map((p, i) => (
+                <div key={p.name + i} style={{ display: "flex", alignItems: "center", padding: "11px 14px", borderTop: "1px solid #2a2723", fontSize: 14, color: "#f2ede4" }}>
+                  <span style={{ width: 32, fontWeight: 700, color: i === 0 ? "#1AFF8C" : "#6b645b" }}>{i + 1}</span>
+                  <span style={{ flex: 1, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
+                  <span style={{ width: 44, textAlign: "right", color: "#1AFF8C", fontWeight: 700 }}>{p.wins}</span>
+                  <span style={{ width: 44, textAlign: "right", color: "#9b948a" }}>{p.losses}</span>
+                  <span style={{ width: 56, textAlign: "right", color: "#9b948a" }}>{p.winRate}%</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <p style={{ fontSize: 11, color: "#5a544c", marginTop: 14, textAlign: "center" }}>
+            Ranked by wins. Names aren't verified — friendly bragging rights only.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // ---------- WAITING (online, no opponent yet) ----------
   if (screen === "waiting") {
     return (
@@ -273,9 +365,9 @@ export default function GomokuAI() {
     if (!g.players?.white) status = "Waiting for opponent…";
     else if (g.winner === "draw") status = "Draw — board full";
     else if (g.winner) status = g.endReason === "resign"
-      ? (g.winner === onlineColor ? "Opponent resigned — you win!" : "You resigned")
-      : (g.winner === onlineColor ? "You win!" : "Opponent wins");
-    else status = g.turn === onlineColor ? "Your move" : "Opponent's move";
+      ? (g.winner === onlineColor ? `${oppName} resigned — you win!` : "You resigned")
+      : (g.winner === onlineColor ? "You win!" : `${oppName} wins`);
+    else status = g.turn === onlineColor ? "Your move" : `${oppName}'s move`;
   } else if (g.winner === "draw") status = "Draw — board full";
   else if (g.winner) status = mode === "ai" ? (g.winner === humanColor ? "You win!" : "Computer wins") : `${g.winner === "black" ? "Black" : "White"} wins!`;
   else if (thinking) status = "Computer thinking…";
@@ -286,6 +378,46 @@ export default function GomokuAI() {
     mode === "local" ? true
     : mode === "ai" ? (!thinking && g.turn === humanColor)
     : (g.turn === onlineColor && !!g.players?.white)
+  );
+
+  const rec = g.record || { black: 0, white: 0, draws: 0 };
+  const myWins = onlineColor === "black" ? rec.black : rec.white;
+  const oppWins = onlineColor === "black" ? rec.white : rec.black;
+
+  const boardEl = (
+    <div style={{ background: "#d8b878", padding: 14, borderRadius: 8, boxShadow: "0 8px 30px rgba(0,0,0,.5)", opacity: thinking ? 0.85 : 1 }}>
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${SIZE}, 1fr)`, position: "relative" }}>
+        {g.board.map((row, r) =>
+          row.map((cell, c) => {
+            const key = `${r},${c}`;
+            const isLast = lastMove && lastMove.r === r && lastMove.c === c;
+            const isWin = winSet.has(key);
+            return (
+              <button key={key} onClick={() => human(r, c)}
+                style={{ width: 30, height: 30, padding: 0, border: "none", background: "transparent",
+                  cursor: canClick && !cell ? "pointer" : "default", position: "relative" }}
+                aria-label={`row ${r + 1} column ${c + 1}`}>
+                <span style={{ position: "absolute", left: 0, right: 0, top: "50%", height: 1, background: "#8a6f43", transform: "translateY(-50%)",
+                  clipPath: c === 0 ? "inset(0 0 0 50%)" : c === SIZE - 1 ? "inset(0 50% 0 0)" : "none" }} />
+                <span style={{ position: "absolute", top: 0, bottom: 0, left: "50%", width: 1, background: "#8a6f43", transform: "translateX(-50%)",
+                  clipPath: r === 0 ? "inset(50% 0 0 0)" : r === SIZE - 1 ? "inset(0 0 50% 0)" : "none" }} />
+                {[3, 7, 11].includes(r) && [3, 7, 11].includes(c) && !cell && (
+                  <span style={{ position: "absolute", top: "50%", left: "50%", width: 6, height: 6, borderRadius: "50%", background: "#8a6f43", transform: "translate(-50%, -50%)" }} />
+                )}
+                {cell && (
+                  <span style={{
+                    position: "absolute", top: "50%", left: "50%", width: 24, height: 24, borderRadius: "50%", transform: "translate(-50%, -50%)",
+                    background: cell === "black" ? "radial-gradient(circle at 35% 30%, #4a443c, #15110d)" : "radial-gradient(circle at 35% 30%, #ffffff, #cfc7ba)",
+                    boxShadow: isWin ? "0 0 0 2px #1AFF8C, 0 0 8px #1AFF8C" : "0 1px 3px rgba(0,0,0,.5)",
+                    outline: isLast && !isWin ? "2px solid #e0533a" : "none", outlineOffset: -2, zIndex: 2,
+                  }} />
+                )}
+              </button>
+            );
+          })
+        )}
+      </div>
+    </div>
   );
 
   return (
@@ -302,7 +434,7 @@ export default function GomokuAI() {
 
       <div style={{
         display: "flex", alignItems: "center", gap: 10, padding: "10px 18px", borderRadius: 999,
-        background: "#262320", border: `1px solid ${g.winner ? "#1AFF8C" : "#3a3530"}`, marginBottom: 16, minWidth: 200, justifyContent: "center",
+        background: "#262320", border: `1px solid ${g.winner ? "#1AFF8C" : "#3a3530"}`, marginBottom: 8, minWidth: 200, justifyContent: "center",
       }}>
         {!g.winner && (
           <span style={{ width: 16, height: 16, borderRadius: "50%", background: g.turn === "black" ? "#15110d" : "#f2ede4", border: "1px solid #6b645b" }} />
@@ -310,38 +442,28 @@ export default function GomokuAI() {
         <span style={{ fontWeight: 600, fontSize: 15, color: g.winner ? "#1AFF8C" : "#f2ede4" }}>{status}</span>
       </div>
 
-      <div style={{ background: "#d8b878", padding: 14, borderRadius: 8, boxShadow: "0 8px 30px rgba(0,0,0,.5)", opacity: thinking ? 0.85 : 1 }}>
-        <div style={{ display: "grid", gridTemplateColumns: `repeat(${SIZE}, 1fr)`, position: "relative" }}>
-          {g.board.map((row, r) =>
-            row.map((cell, c) => {
-              const key = `${r},${c}`;
-              const isLast = lastMove && lastMove.r === r && lastMove.c === c;
-              const isWin = winSet.has(key);
-              return (
-                <button key={key} onClick={() => human(r, c)}
-                  style={{ width: 30, height: 30, padding: 0, border: "none", background: "transparent",
-                    cursor: canClick && !cell ? "pointer" : "default", position: "relative" }}
-                  aria-label={`row ${r + 1} column ${c + 1}`}>
-                  <span style={{ position: "absolute", left: 0, right: 0, top: "50%", height: 1, background: "#8a6f43", transform: "translateY(-50%)",
-                    clipPath: c === 0 ? "inset(0 0 0 50%)" : c === SIZE - 1 ? "inset(0 50% 0 0)" : "none" }} />
-                  <span style={{ position: "absolute", top: 0, bottom: 0, left: "50%", width: 1, background: "#8a6f43", transform: "translateX(-50%)",
-                    clipPath: r === 0 ? "inset(50% 0 0 0)" : r === SIZE - 1 ? "inset(0 0 50% 0)" : "none" }} />
-                  {[3, 7, 11].includes(r) && [3, 7, 11].includes(c) && !cell && (
-                    <span style={{ position: "absolute", top: "50%", left: "50%", width: 6, height: 6, borderRadius: "50%", background: "#8a6f43", transform: "translate(-50%, -50%)" }} />
-                  )}
-                  {cell && (
-                    <span style={{
-                      position: "absolute", top: "50%", left: "50%", width: 24, height: 24, borderRadius: "50%", transform: "translate(-50%, -50%)",
-                      background: cell === "black" ? "radial-gradient(circle at 35% 30%, #4a443c, #15110d)" : "radial-gradient(circle at 35% 30%, #ffffff, #cfc7ba)",
-                      boxShadow: isWin ? "0 0 0 2px #1AFF8C, 0 0 8px #1AFF8C" : "0 1px 3px rgba(0,0,0,.5)",
-                      outline: isLast && !isWin ? "2px solid #e0533a" : "none", outlineOffset: -2, zIndex: 2,
-                    }} />
-                  )}
-                </button>
-              );
-            })
-          )}
+      {mode === "online" && g.players?.white && (
+        <div style={{ fontSize: 12, color: "#9b948a", marginBottom: 14 }}>
+          You <b style={{ color: "#f2ede4" }}>{myWins}</b> – <b style={{ color: "#f2ede4" }}>{oppWins}</b> {oppName}
+          {rec.draws ? <span style={{ color: "#6b645b" }}> · {rec.draws} draw{rec.draws > 1 ? "s" : ""}</span> : null}
         </div>
+      )}
+
+      <div style={{
+        display: "flex", flexDirection: wide ? "row" : "column", gap: 16,
+        alignItems: wide ? "flex-start" : "center", justifyContent: "center", width: "100%",
+      }}>
+        {boardEl}
+        {mode === "online" && (
+          <ChatPanel
+            messages={g.chat || []}
+            myColor={onlineColor}
+            names={g.names}
+            onSend={sendChat}
+            disabled={!g.players?.white}
+            height={wide ? 478 : 240}
+          />
+        )}
       </div>
 
       <div style={{ display: "flex", gap: 12, marginTop: 22 }}>
@@ -350,7 +472,7 @@ export default function GomokuAI() {
             <button onClick={rematchOnline} style={primaryBtnSm}>Rematch</button>
           ) : (
             <button onClick={resignOnline} disabled={!g.players?.white}
-              style={{ ...secondaryBtn, padding: "10px 20px", fontSize: 14, opacity: g.players?.white ? 1 : 0.5 }}>
+              style={{ ...secondaryBtn, width: "auto", padding: "10px 20px", fontSize: 14, opacity: g.players?.white ? 1 : 0.5 }}>
               Resign
             </button>
           )
@@ -358,12 +480,12 @@ export default function GomokuAI() {
           <button onClick={rematch} style={primaryBtnSm}>New game</button>
         ) : (
           <button onClick={undo} disabled={g.history.length === 0 || thinking}
-            style={{ ...secondaryBtn, padding: "10px 20px", fontSize: 14, opacity: g.history.length === 0 || thinking ? 0.5 : 1 }}>
+            style={{ ...secondaryBtn, width: "auto", padding: "10px 20px", fontSize: 14, opacity: g.history.length === 0 || thinking ? 0.5 : 1 }}>
             Undo
           </button>
         )}
         {mode === "ai" && (g.winner || g.history.length === 0) && (
-          <button onClick={swapSides} style={{ ...secondaryBtn, padding: "10px 20px", fontSize: 14 }}>
+          <button onClick={swapSides} style={{ ...secondaryBtn, width: "auto", padding: "10px 20px", fontSize: 14 }}>
             Swap sides
           </button>
         )}

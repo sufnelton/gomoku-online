@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import {
-  createLobby, joinLobby, moveInLobby, rematchLobby, resignLobby, getState,
+  createLobby, joinLobby, moveInLobby, rematchLobby, resignLobby, chatMessage, getState,
 } from "../../../lib/lobby.js";
 
 export const runtime = "nodejs";
@@ -46,11 +46,12 @@ export async function POST(req) {
   const code = (body.code || "").toUpperCase();
   if (!playerId) return NextResponse.json({ error: "bad_request" }, { status: 400 });
   switch (action) {
-    case "create": return out(await createLobby(playerId));
-    case "join": return out(await joinLobby(playerId, code));
+    case "create": return out(await createLobby(playerId, body.name));
+    case "join": return out(await joinLobby(playerId, body.name, code));
     case "move": return out(await moveInLobby(playerId, code, body.r, body.c));
     case "rematch": return out(await rematchLobby(playerId, code));
     case "resign": return out(await resignLobby(playerId, code));
+    case "chat": return out(await chatMessage(playerId, code, body.text));
     default: return NextResponse.json({ error: "bad_request" }, { status: 400 });
   }
 }
