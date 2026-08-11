@@ -10,6 +10,16 @@ export const metadata = {
 const themeCss = `
   :root { --app-bg: #1a1816; }
   body[data-scene="on"] { --app-bg: rgba(22, 20, 18, 0.80); }
+
+  /* Stones settle in when placed. The keyframes carry the centring transform,
+     since animating transform would otherwise drop it mid-flight. */
+  @keyframes pieceIn {
+    from { opacity: 0; transform: translate(-50%, -50%) scale(0.55); }
+    65%  { opacity: 1; transform: translate(-50%, -50%) scale(1.07); }
+    to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  }
+  .pc { animation: pieceIn 170ms cubic-bezier(0.34, 1.4, 0.64, 1) both; }
+  @media (prefers-reduced-motion: reduce) { .pc { animation: none; } }
 `;
 
 export default function RootLayout({ children }) {

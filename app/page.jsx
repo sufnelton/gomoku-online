@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { SIZE, emptyBoard, findWin, other, applyMove, freshGameState, isForbidden, forbiddenPoints } from "../lib/gomoku.js";
 import { chooseMove, LEVELS } from "../lib/ai.js";
 import ChatPanel from "./ChatPanel.jsx";
@@ -12,6 +12,52 @@ const SKINS = {
   classic: { id: "classic", name: "Classic", black: null, white: null },
   maple: { id: "maple", name: "Maple", black: "/pieces/slime.png", white: "/pieces/mushroom.png" },
 };
+
+/* One intersection. Memoised on primitives so a move re-renders the two cells
+ * that actually changed instead of all 225 -- that whole-grid rebuild is what
+ * made taps feel laggy on a phone. */
+const Cell = React.memo(function Cell({ r, c, cell, isLast, isWin, isBanned, canClick, skinSrc, onPick, onSkinError }) {
+  const isStar = (r === 3 || r === 7 || r === 11) && (c === 3 || c === 7 || c === 11);
+  return (
+    <button onClick={() => onPick(r, c)}
+      style={{ width: 30, height: 30, padding: 0, border: "none", background: "transparent", touchAction: "manipulation",
+        cursor: canClick && !cell ? "pointer" : "default", position: "relative" }}
+      aria-label={`row ${r + 1} column ${c + 1}`}>
+      <span style={{ position: "absolute", left: 0, right: 0, top: "50%", height: 1, background: "#8a6f43", transform: "translateY(-50%)",
+        clipPath: c === 0 ? "inset(0 0 0 50%)" : c === SIZE - 1 ? "inset(0 50% 0 0)" : "none" }} />
+      <span style={{ position: "absolute", top: 0, bottom: 0, left: "50%", width: 1, background: "#8a6f43", transform: "translateX(-50%)",
+        clipPath: r === 0 ? "inset(50% 0 0 0)" : r === SIZE - 1 ? "inset(0 0 50% 0)" : "none" }} />
+      {isBanned && (
+        <span aria-label="forbidden: double three" style={{
+          position: "absolute", top: "50%", left: "50%", width: 14, height: 14, transform: "translate(-50%, -50%)",
+          borderRadius: "50%", border: "1.5px solid rgba(196,58,42,.85)", background: "rgba(196,58,42,.14)", zIndex: 1,
+        }}>
+          <span style={{ position: "absolute", top: "50%", left: "50%", width: 12, height: 1.5, background: "rgba(196,58,42,.95)", transform: "translate(-50%,-50%) rotate(45deg)" }} />
+          <span style={{ position: "absolute", top: "50%", left: "50%", width: 12, height: 1.5, background: "rgba(196,58,42,.95)", transform: "translate(-50%,-50%) rotate(-45deg)" }} />
+        </span>
+      )}
+      {isStar && !cell && !isBanned && (
+        <span style={{ position: "absolute", top: "50%", left: "50%", width: 6, height: 6, borderRadius: "50%", background: "#8a6f43", transform: "translate(-50%, -50%)" }} />
+      )}
+      {cell && (skinSrc ? (
+        <img className="pc" src={skinSrc} alt={cell} onError={onSkinError}
+          style={{
+            position: "absolute", top: "50%", left: "50%", width: 28, height: 28, transform: "translate(-50%, -50%)",
+            objectFit: "contain", zIndex: 2,
+            filter: isWin ? "drop-shadow(0 0 4px #1AFF8C) drop-shadow(0 0 2px #1AFF8C)" : "drop-shadow(0 1px 2px rgba(0,0,0,.55))",
+            outline: isLast && !isWin ? "2px solid #e0533a" : "none", outlineOffset: -1, borderRadius: 4,
+          }} />
+      ) : (
+        <span className="pc" style={{
+          position: "absolute", top: "50%", left: "50%", width: 24, height: 24, borderRadius: "50%", transform: "translate(-50%, -50%)",
+          background: cell === "black" ? "radial-gradient(circle at 35% 30%, #4a443c, #15110d)" : "radial-gradient(circle at 35% 30%, #ffffff, #cfc7ba)",
+          boxShadow: isWin ? "0 0 0 2px #1AFF8C, 0 0 8px #1AFF8C" : "0 1px 3px rgba(0,0,0,.5)",
+          outline: isLast && !isWin ? "2px solid #e0533a" : "none", outlineOffset: -2, zIndex: 2,
+        }} />
+      ))}
+    </button>
+  );
+});
 
 function useIsWide(bp = 820) {
   const [wide, setWide] = useState(false);
@@ -175,12 +221,25 @@ export default function GomokuAI() {
     : mode === "ai" ? (g.turn === humanColor && !thinking ? humanColor : null)
     : (g.turn === onlineColor && g.players?.white ? onlineColor : null);
 
-  const forbidSet = useMemo(() => {
-    if (!markColor) return null;
-    const s = new Set();
-    for (const [r, c] of forbiddenPoints(g.board, markColor)) s.add(`${r},${c}`);
-    return s;
+  // Scanning the board for forbidden points is the most expensive thing per
+  // move. Run it after the frame that paints the stone, so placing never waits
+  // on it; the marks appear a frame later.
+  const [forbidSet, setForbidSet] = useState(null);
+  useEffect(() => {
+    if (!markColor) { setForbidSet(null); return; }
+    const id = requestAnimationFrame(() => {
+      const s = new Set();
+      for (const [r, c] of forbiddenPoints(g.board, markColor)) s.add(`${r},${c}`);
+      setForbidSet(s);
+    });
+    return () => cancelAnimationFrame(id);
   }, [g.board, markColor]);
+
+  // Stable identities so the memoised cells are not invalidated every render.
+  const humanRef = useRef(human);
+  useEffect(() => { humanRef.current = human; });
+  const onPick = useCallback((r, c) => humanRef.current(r, c), []);
+  const onSkinError = useCallback(() => setSkinBroken(true), []);
 
   useEffect(() => { setRuleNote(""); }, [g.history.length, screen, mode]);
 
@@ -466,57 +525,23 @@ export default function GomokuAI() {
         {g.board.map((row, r) =>
           row.map((cell, c) => {
             const key = `${r},${c}`;
-            const isLast = lastMove && lastMove.r === r && lastMove.c === c;
-            const isWin = winSet.has(key);
-            const isBanned = !cell && forbidSet?.has(key);
             return (
-              <button key={key} onClick={() => human(r, c)}
-                style={{ width: 30, height: 30, padding: 0, border: "none", background: "transparent",
-                  cursor: canClick && !cell ? "pointer" : "default", position: "relative" }}
-                aria-label={`row ${r + 1} column ${c + 1}`}>
-                <span style={{ position: "absolute", left: 0, right: 0, top: "50%", height: 1, background: "#8a6f43", transform: "translateY(-50%)",
-                  clipPath: c === 0 ? "inset(0 0 0 50%)" : c === SIZE - 1 ? "inset(0 50% 0 0)" : "none" }} />
-                <span style={{ position: "absolute", top: 0, bottom: 0, left: "50%", width: 1, background: "#8a6f43", transform: "translateX(-50%)",
-                  clipPath: r === 0 ? "inset(50% 0 0 0)" : r === SIZE - 1 ? "inset(0 0 50% 0)" : "none" }} />
-                {isBanned && (
-                  <span aria-label="forbidden: double three" style={{
-                    position: "absolute", top: "50%", left: "50%", width: 14, height: 14, transform: "translate(-50%, -50%)",
-                    borderRadius: "50%", border: "1.5px solid rgba(196,58,42,.85)", background: "rgba(196,58,42,.14)", zIndex: 1,
-                  }}>
-                    <span style={{ position: "absolute", top: "50%", left: "50%", width: 12, height: 1.5, background: "rgba(196,58,42,.95)", transform: "translate(-50%,-50%) rotate(45deg)" }} />
-                    <span style={{ position: "absolute", top: "50%", left: "50%", width: 12, height: 1.5, background: "rgba(196,58,42,.95)", transform: "translate(-50%,-50%) rotate(-45deg)" }} />
-                  </span>
-                )}
-                {[3, 7, 11].includes(r) && [3, 7, 11].includes(c) && !cell && !isBanned && (
-                  <span style={{ position: "absolute", top: "50%", left: "50%", width: 6, height: 6, borderRadius: "50%", background: "#8a6f43", transform: "translate(-50%, -50%)" }} />
-                )}
-                {cell && (skin[cell] ? (
-                  <img
-                    src={skin[cell]}
-                    alt={cell}
-                    onError={() => setSkinBroken(true)}
-                    style={{
-                      position: "absolute", top: "50%", left: "50%", width: 28, height: 28, transform: "translate(-50%, -50%)",
-                      objectFit: "contain", zIndex: 2,
-                      filter: isWin ? "drop-shadow(0 0 4px #1AFF8C) drop-shadow(0 0 2px #1AFF8C)" : "drop-shadow(0 1px 2px rgba(0,0,0,.55))",
-                      outline: isLast && !isWin ? "2px solid #e0533a" : "none", outlineOffset: -1, borderRadius: 4,
-                    }}
-                  />
-                ) : (
-                  <span style={{
-                    position: "absolute", top: "50%", left: "50%", width: 24, height: 24, borderRadius: "50%", transform: "translate(-50%, -50%)",
-                    background: cell === "black" ? "radial-gradient(circle at 35% 30%, #4a443c, #15110d)" : "radial-gradient(circle at 35% 30%, #ffffff, #cfc7ba)",
-                    boxShadow: isWin ? "0 0 0 2px #1AFF8C, 0 0 8px #1AFF8C" : "0 1px 3px rgba(0,0,0,.5)",
-                    outline: isLast && !isWin ? "2px solid #e0533a" : "none", outlineOffset: -2, zIndex: 2,
-                  }} />
-                ))}
-              </button>
+              <Cell key={key} r={r} c={c} cell={cell}
+                isLast={!!lastMove && lastMove.r === r && lastMove.c === c}
+                isWin={winSet.has(key)}
+                isBanned={!cell && !!forbidSet?.has(key)}
+                canClick={canClick}
+                skinSrc={cell ? skin[cell] : null}
+                onPick={onPick}
+                onSkinError={onSkinError}
+              />
             );
           })
         )}
       </div>
     </div>
   );
+
 
   return (
     <div style={wrap}>
