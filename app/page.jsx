@@ -1,6 +1,6 @@
 "use client";
-import React, { useState, useRef, useEffect, useCallback } from "react";
-import { SIZE, emptyBoard, findWin, other, applyMove, freshGameState } from "../lib/gomoku.js";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { SIZE, emptyBoard, findWin, other, applyMove, freshGameState, isForbidden, forbiddenPoints } from "../lib/gomoku.js";
 import { chooseMove, LEVELS } from "../lib/ai.js";
 import ChatPanel from "./ChatPanel.jsx";
 
@@ -37,6 +37,7 @@ export default function GomokuAI() {
   const [humanColor, setHumanColor] = useState("black");
   const [g, setG] = useState(freshGame);
   const [thinking, setThinking] = useState(false);
+  const [ruleNote, setRuleNote] = useState("");
 
   // online
   const [name, setName] = useState("");
@@ -130,15 +131,38 @@ export default function GomokuAI() {
 
   const human = useCallback((r, c) => {
     if (g.winner || g.board[r][c]) return;
-    if (mode === "ai") { if (thinking || g.turn !== humanColor) return; setG((s) => applyMove(s, r, c)); return; }
-    if (mode === "local") { setG((s) => applyMove(s, r, c)); return; }
-    if (mode === "online") {
-      if (g.turn !== onlineColor || !g.players?.white) return;
-      api({ action: "move", code, r, c }).then((d) => d && setG(d.state)).catch(() => {});
+    if (mode === "ai" && (thinking || g.turn !== humanColor)) return;
+    if (mode === "online" && (g.turn !== onlineColor || !g.players?.white)) return;
+    if (isForbidden(g.board, r, c, g.turn)) {
+      setRuleNote("Double three — that point makes two open threes at once. Not allowed.");
+      return;
     }
+    setRuleNote("");
+    if (mode === "online") {
+      api({ action: "move", code, r, c })
+        .then((d) => d && setG(d.state))
+        .catch((e) => { if (e.message === "forbidden") setRuleNote("Double three — not allowed."); });
+      return;
+    }
+    setG((s) => applyMove(s, r, c));
   }, [thinking, g, mode, humanColor, onlineColor, code, api]);
 
-  const start = (m) => { setMode(m); setG(freshGame()); setThinking(false); setScreen("game"); };
+  // Which side's forbidden points to mark: only ever the one a human here can play.
+  const markColor = g.winner ? null
+    : mode === "local" ? g.turn
+    : mode === "ai" ? (g.turn === humanColor && !thinking ? humanColor : null)
+    : (g.turn === onlineColor && g.players?.white ? onlineColor : null);
+
+  const forbidSet = useMemo(() => {
+    if (!markColor) return null;
+    const s = new Set();
+    for (const [r, c] of forbiddenPoints(g.board, markColor)) s.add(`${r},${c}`);
+    return s;
+  }, [g.board, markColor]);
+
+  useEffect(() => { setRuleNote(""); }, [g.history.length, screen, mode]);
+
+  const start = (m) => { setMode(m); setG(freshGame()); setThinking(false); setScreen("game"); setRuleNote(""); };
 
   const undo = useCallback(() => {
     if (thinking || mode === "online") return;
@@ -392,6 +416,7 @@ export default function GomokuAI() {
             const key = `${r},${c}`;
             const isLast = lastMove && lastMove.r === r && lastMove.c === c;
             const isWin = winSet.has(key);
+            const isBanned = !cell && forbidSet?.has(key);
             return (
               <button key={key} onClick={() => human(r, c)}
                 style={{ width: 30, height: 30, padding: 0, border: "none", background: "transparent",
@@ -401,7 +426,16 @@ export default function GomokuAI() {
                   clipPath: c === 0 ? "inset(0 0 0 50%)" : c === SIZE - 1 ? "inset(0 50% 0 0)" : "none" }} />
                 <span style={{ position: "absolute", top: 0, bottom: 0, left: "50%", width: 1, background: "#8a6f43", transform: "translateX(-50%)",
                   clipPath: r === 0 ? "inset(50% 0 0 0)" : r === SIZE - 1 ? "inset(0 0 50% 0)" : "none" }} />
-                {[3, 7, 11].includes(r) && [3, 7, 11].includes(c) && !cell && (
+                {isBanned && (
+                  <span aria-label="forbidden: double three" style={{
+                    position: "absolute", top: "50%", left: "50%", width: 14, height: 14, transform: "translate(-50%, -50%)",
+                    borderRadius: "50%", border: "1.5px solid rgba(196,58,42,.85)", background: "rgba(196,58,42,.14)", zIndex: 1,
+                  }}>
+                    <span style={{ position: "absolute", top: "50%", left: "50%", width: 12, height: 1.5, background: "rgba(196,58,42,.95)", transform: "translate(-50%,-50%) rotate(45deg)" }} />
+                    <span style={{ position: "absolute", top: "50%", left: "50%", width: 12, height: 1.5, background: "rgba(196,58,42,.95)", transform: "translate(-50%,-50%) rotate(-45deg)" }} />
+                  </span>
+                )}
+                {[3, 7, 11].includes(r) && [3, 7, 11].includes(c) && !cell && !isBanned && (
                   <span style={{ position: "absolute", top: "50%", left: "50%", width: 6, height: 6, borderRadius: "50%", background: "#8a6f43", transform: "translate(-50%, -50%)" }} />
                 )}
                 {cell && (
@@ -440,6 +474,10 @@ export default function GomokuAI() {
           <span style={{ width: 16, height: 16, borderRadius: "50%", background: g.turn === "black" ? "#15110d" : "#f2ede4", border: "1px solid #6b645b" }} />
         )}
         <span style={{ fontWeight: 600, fontSize: 15, color: g.winner ? "#1AFF8C" : "#f2ede4" }}>{status}</span>
+      </div>
+
+      <div style={{ fontSize: 12, marginBottom: 10, minHeight: 16, textAlign: "center", color: ruleNote ? "#e0533a" : "#6b645b" }}>
+        {ruleNote || "No double three — ✕ marks a point that would make two open threes at once."}
       </div>
 
       {mode === "online" && g.players?.white && (

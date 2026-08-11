@@ -11,6 +11,7 @@ const ERR_STATUS = {
   full: 409,
   not_your_turn: 409,
   occupied: 409,
+  forbidden: 409,
   game_over: 409,
   no_opponent: 409,
   not_a_player: 403,
