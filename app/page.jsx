@@ -156,7 +156,7 @@ export default function GomokuAI() {
     if (mode === "ai" && (thinking || g.turn !== humanColor)) return;
     if (mode === "online" && (g.turn !== onlineColor || !g.players?.white)) return;
     if (isForbidden(g.board, r, c, g.turn)) {
-      setRuleNote("Double three — two open threes at once, and it isn't blocking a four.");
+      setRuleNote("Double three — two open threes at once, and it isn't stopping a five.");
       return;
     }
     setRuleNote("");
@@ -544,7 +544,7 @@ export default function GomokuAI() {
       </div>
 
       <div style={{ fontSize: 12, marginBottom: 10, minHeight: 16, textAlign: "center", color: ruleNote ? "#e0533a" : "#6b645b" }}>
-        {ruleNote || "No double three, unless it blocks a four — ✕ marks a point you can't take."}
+        {ruleNote || "No double three, unless it blocks a five — ✕ marks a point you can't take."}
       </div>
 
       {mode === "online" && g.players?.white && (
