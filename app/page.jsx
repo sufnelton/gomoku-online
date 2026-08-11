@@ -228,18 +228,9 @@ export default function GomokuAI() {
     if (mode === "online" && (g.turn !== onlineColor || !g.players?.white)) return;
     if (isForbidden(g.board, r, c, g.turn)) {
       setRuleNote("Double three — two open threes at once, and it isn't stopping a five.");
-      setPending(null);
       return;
     }
     setRuleNote("");
-    // On touch your finger covers the intersection, so the first tap only
-    // shows a ghost. Tapping a different point moves it rather than playing
-    // it, which turns a mis-tap into a second look instead of a wasted move.
-    if (coarse && !(pending && pending.r === r && pending.c === c)) {
-      setPending({ r, c });
-      return;
-    }
-    setPending(null);
     if (mode === "online") {
       api({ action: "move", code, r, c })
         .then((d) => d && setG(d.state))
@@ -247,7 +238,40 @@ export default function GomokuAI() {
       return;
     }
     setG((s) => applyMove(s, r, c));
-  }, [thinking, g, mode, humanColor, onlineColor, code, api, coarse, pending]);
+  }, [thinking, g, mode, humanColor, onlineColor, code, api]);
+
+  /* Touch aiming, iOS cursor-drag style. Press anywhere on the board and a
+   * ghost appears with a preview floating ABOVE your finger -- the finger is
+   * wider than a cell, so a preview under it would be invisible. Slide to
+   * adjust, lift to place. Nothing commits until you let go. */
+  const gridRef = useRef(null);
+  const pendingRef = useRef(null);
+  const canClickRef = useRef(false);
+  const setGhost = useCallback((p) => { pendingRef.current = p; setPending(p); }, []);
+
+  const cellFromTouch = useCallback((t) => {
+    const el = gridRef.current;
+    if (!el) return null;
+    const box = el.getBoundingClientRect();
+    const c = Math.floor(((t.clientX - box.left) / box.width) * SIZE);
+    const r = Math.floor(((t.clientY - box.top) / box.height) * SIZE);
+    if (r < 0 || r >= SIZE || c < 0 || c >= SIZE) return null;
+    return { r, c };
+  }, []);
+
+  const aim = useCallback((e) => {
+    const p = cellFromTouch(e.touches[0]);
+    setGhost(p && canClickRef.current && !g.board[p.r][p.c] ? p : null);
+  }, [cellFromTouch, g.board, setGhost]);
+
+  const release = useCallback((e) => {
+    // Stop the synthetic click the browser fires after a touch, which would
+    // otherwise run placement a second time.
+    if (e && e.cancelable) e.preventDefault();
+    const p = pendingRef.current;
+    setGhost(null);
+    if (p) humanRef.current(p.r, p.c);
+  }, [setGhost]);
 
   // Which side's forbidden points to mark: only ever the one a human here can play.
   const markColor = g.winner ? null
@@ -548,6 +572,7 @@ export default function GomokuAI() {
     : mode === "ai" ? (!thinking && g.turn === humanColor)
     : (g.turn === onlineColor && !!g.players?.white)
   );
+  canClickRef.current = canClick;
 
   const rec = g.record || { black: 0, white: 0, draws: 0 };
   const myWins = onlineColor === "black" ? rec.black : rec.white;
@@ -555,7 +580,26 @@ export default function GomokuAI() {
 
   const boardEl = (
     <div style={{ background: "#d8b878", padding: 14, borderRadius: 8, boxShadow: "0 8px 30px rgba(0,0,0,.5)", opacity: thinking ? 0.85 : 1 }}>
-      <div style={{ display: "grid", gridTemplateColumns: `repeat(${SIZE}, 1fr)`, position: "relative" }}>
+      <div ref={gridRef}
+        onTouchStart={aim} onTouchMove={aim} onTouchEnd={release} onTouchCancel={() => setGhost(null)}
+        style={{ display: "grid", gridTemplateColumns: `repeat(${SIZE}, 1fr)`, position: "relative",
+          touchAction: coarse ? "none" : "manipulation" }}>
+        {pending && (
+          <div style={{
+            position: "absolute", left: `${((pending.c + 0.5) / SIZE) * 100}%`, top: `${((pending.r + 0.5) / SIZE) * 100}%`,
+            transform: "translate(-50%, -50%) translateY(-48px)", pointerEvents: "none", zIndex: 10,
+            width: 54, height: 54, borderRadius: "50%", background: "rgba(22,20,18,.94)",
+            border: "1.5px solid rgba(26,255,140,.9)", boxShadow: "0 6px 18px rgba(0,0,0,.5)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            {skin[g.turn] ? (
+              <img src={skin[g.turn]} alt="" style={{ width: 38, height: 38, objectFit: "contain" }} />
+            ) : (
+              <span style={{ width: 32, height: 32, borderRadius: "50%",
+                background: g.turn === "black" ? "radial-gradient(circle at 35% 30%, #4a443c, #15110d)" : "radial-gradient(circle at 35% 30%, #ffffff, #cfc7ba)" }} />
+            )}
+          </div>
+        )}
         {g.board.map((row, r) =>
           row.map((cell, c) => {
             const key = `${r},${c}`;
@@ -605,7 +649,7 @@ export default function GomokuAI() {
       </div>
 
       <div style={{ fontSize: 12, marginBottom: 10, minHeight: 16, textAlign: "center", color: ruleNote ? "#e0533a" : pending ? "#1AFF8C" : "#6b645b" }}>
-        {ruleNote || (pending ? "Tap the same spot again to place it." : "No double three, unless it blocks a five — ✕ marks a point you can't take.")}
+        {ruleNote || (pending ? "Slide to aim — lift to place." : "No double three, unless it blocks a five — ✕ marks a point you can't take.")}
       </div>
 
       {mode === "online" && g.players?.white && (
