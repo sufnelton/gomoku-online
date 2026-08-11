@@ -16,7 +16,7 @@ const SKINS = {
 /* One intersection. Memoised on primitives so a move re-renders the two cells
  * that actually changed instead of all 225 -- that whole-grid rebuild is what
  * made taps feel laggy on a phone. */
-const Cell = React.memo(function Cell({ r, c, cell, isLast, isWin, isBanned, canClick, skinSrc, onPick, onSkinError }) {
+const Cell = React.memo(function Cell({ r, c, cell, isLast, isWin, isBanned, canClick, skinSrc, ghostColor, ghostSrc, onPick, onSkinError }) {
   const isStar = (r === 3 || r === 7 || r === 11) && (c === 3 || c === 7 || c === 11);
   return (
     <button onClick={() => onPick(r, c)}
@@ -36,7 +36,20 @@ const Cell = React.memo(function Cell({ r, c, cell, isLast, isWin, isBanned, can
           <span style={{ position: "absolute", top: "50%", left: "50%", width: 12, height: 1.5, background: "rgba(196,58,42,.95)", transform: "translate(-50%,-50%) rotate(-45deg)" }} />
         </span>
       )}
-      {isStar && !cell && !isBanned && (
+      {!cell && ghostColor && (
+        <span style={{ position: "absolute", top: "50%", left: "50%", width: 30, height: 30, transform: "translate(-50%, -50%)",
+          borderRadius: "50%", border: "1.5px dashed rgba(26,255,140,.9)", zIndex: 3 }} />
+      )}
+      {!cell && ghostColor && (ghostSrc ? (
+        <img src={ghostSrc} alt="" aria-hidden="true"
+          style={{ position: "absolute", top: "50%", left: "50%", width: 28, height: 28, transform: "translate(-50%, -50%)",
+            objectFit: "contain", opacity: 0.45, zIndex: 2 }} />
+      ) : (
+        <span aria-hidden="true" style={{ position: "absolute", top: "50%", left: "50%", width: 24, height: 24, borderRadius: "50%",
+          transform: "translate(-50%, -50%)", opacity: 0.45, zIndex: 2,
+          background: ghostColor === "black" ? "radial-gradient(circle at 35% 30%, #4a443c, #15110d)" : "radial-gradient(circle at 35% 30%, #ffffff, #cfc7ba)" }} />
+      ))}
+      {isStar && !cell && !ghostColor && !isBanned && (
         <span style={{ position: "absolute", top: "50%", left: "50%", width: 6, height: 6, borderRadius: "50%", background: "#8a6f43", transform: "translate(-50%, -50%)" }} />
       )}
       {cell && (skinSrc ? (
@@ -93,6 +106,8 @@ export default function GomokuAI() {
   const [ruleNote, setRuleNote] = useState("");
   const [skinId, setSkinId] = useState("classic");
   const [skinBroken, setSkinBroken] = useState(false);
+  const [pending, setPending] = useState(null); // touch: ghost stone awaiting confirmation
+  const [coarse, setCoarse] = useState(false);
 
   // online
   const [name, setName] = useState("");
@@ -154,6 +169,16 @@ export default function GomokuAI() {
     if (saved && SKINS[saved]) setSkinId(saved);
   }, []);
 
+  // Confirm-tap is about pointing precision, not screen size, so key it off
+  // pointer type: a finger gets the ghost, a mouse keeps single-click.
+  useEffect(() => {
+    const m = window.matchMedia("(pointer: coarse)");
+    const on = () => setCoarse(m.matches);
+    on();
+    m.addEventListener ? m.addEventListener("change", on) : m.addListener(on);
+    return () => (m.removeEventListener ? m.removeEventListener("change", on) : m.removeListener(on));
+  }, []);
+
   const chooseSkin = useCallback((id) => {
     setSkinId(id);
     setSkinBroken(false);
@@ -203,9 +228,18 @@ export default function GomokuAI() {
     if (mode === "online" && (g.turn !== onlineColor || !g.players?.white)) return;
     if (isForbidden(g.board, r, c, g.turn)) {
       setRuleNote("Double three — two open threes at once, and it isn't stopping a five.");
+      setPending(null);
       return;
     }
     setRuleNote("");
+    // On touch your finger covers the intersection, so the first tap only
+    // shows a ghost. Tapping a different point moves it rather than playing
+    // it, which turns a mis-tap into a second look instead of a wasted move.
+    if (coarse && !(pending && pending.r === r && pending.c === c)) {
+      setPending({ r, c });
+      return;
+    }
+    setPending(null);
     if (mode === "online") {
       api({ action: "move", code, r, c })
         .then((d) => d && setG(d.state))
@@ -213,7 +247,7 @@ export default function GomokuAI() {
       return;
     }
     setG((s) => applyMove(s, r, c));
-  }, [thinking, g, mode, humanColor, onlineColor, code, api]);
+  }, [thinking, g, mode, humanColor, onlineColor, code, api, coarse, pending]);
 
   // Which side's forbidden points to mark: only ever the one a human here can play.
   const markColor = g.winner ? null
@@ -241,7 +275,7 @@ export default function GomokuAI() {
   const onPick = useCallback((r, c) => humanRef.current(r, c), []);
   const onSkinError = useCallback(() => setSkinBroken(true), []);
 
-  useEffect(() => { setRuleNote(""); }, [g.history.length, screen, mode]);
+  useEffect(() => { setRuleNote(""); setPending(null); }, [g.history.length, screen, mode]);
 
   const start = (m) => { setMode(m); setG(freshGame()); setThinking(false); setScreen("game"); setRuleNote(""); };
 
@@ -532,6 +566,8 @@ export default function GomokuAI() {
                 isBanned={!cell && !!forbidSet?.has(key)}
                 canClick={canClick}
                 skinSrc={cell ? skin[cell] : null}
+                ghostColor={pending && pending.r === r && pending.c === c ? g.turn : null}
+                ghostSrc={pending && pending.r === r && pending.c === c ? skin[g.turn] : null}
                 onPick={onPick}
                 onSkinError={onSkinError}
               />
@@ -568,8 +604,8 @@ export default function GomokuAI() {
         <span style={{ fontWeight: 600, fontSize: 15, color: g.winner ? "#1AFF8C" : "#f2ede4" }}>{status}</span>
       </div>
 
-      <div style={{ fontSize: 12, marginBottom: 10, minHeight: 16, textAlign: "center", color: ruleNote ? "#e0533a" : "#6b645b" }}>
-        {ruleNote || "No double three, unless it blocks a five — ✕ marks a point you can't take."}
+      <div style={{ fontSize: 12, marginBottom: 10, minHeight: 16, textAlign: "center", color: ruleNote ? "#e0533a" : pending ? "#1AFF8C" : "#6b645b" }}>
+        {ruleNote || (pending ? "Tap the same spot again to place it." : "No double three, unless it blocks a five — ✕ marks a point you can't take.")}
       </div>
 
       {mode === "online" && g.players?.white && (
