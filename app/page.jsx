@@ -187,17 +187,58 @@ export default function GomokuAI() {
 
   const skin = (skinBroken ? SKINS.classic : SKINS[skinId]) || SKINS.classic;
 
+  // The engine runs in a worker so a long search never freezes the board. If
+  // the worker can't start or dies, everything falls back to running it here.
+  const workerRef = useRef(null);
+  const reqRef = useRef(0);
+  useEffect(() => {
+    if (typeof Worker === "undefined") return;
+    let w;
+    try {
+      w = new Worker(new URL("./ai.worker.js", import.meta.url), { type: "module" });
+    } catch { return; }
+    w.onerror = () => { workerRef.current = null; };
+    workerRef.current = w;
+    return () => { workerRef.current = null; w.terminate(); };
+  }, []);
+
   // AI turn handler (vs-computer only)
   useEffect(() => {
     if (screen !== "game" || mode !== "ai" || g.winner) return;
     if (g.turn !== aiColor) return;
     let cancelled = false;
     setThinking(true);
-    const t = setTimeout(() => {
-      const boardCopy = g.board.map((row) => row.slice());
-      const mv = chooseMove(boardCopy, level, aiColor);
-      if (!cancelled) { if (mv) setG((s) => applyMove(s, mv[0], mv[1])); setThinking(false); }
-    }, 140);
+    const board = g.board.map((row) => row.slice());
+    const finish = (mv) => {
+      if (cancelled) return;
+      if (mv) setG((s) => applyMove(s, mv[0], mv[1]));
+      setThinking(false);
+    };
+
+    const w = workerRef.current;
+    if (w) {
+      const id = ++reqRef.current;
+      const onMsg = (e) => {
+        if (!e.data || e.data.id !== id) return;
+        w.removeEventListener("message", onMsg);
+        finish(e.data.mv);
+      };
+      w.addEventListener("message", onMsg);
+      const t = setTimeout(() => w.postMessage({ id, board, level, color: aiColor }), 140);
+      // If the worker never answers, play it out on this thread rather than
+      // leaving the game stuck on "thinking".
+      const guard = setTimeout(() => {
+        if (cancelled) return;
+        w.removeEventListener("message", onMsg);
+        finish(chooseMove(board, level, aiColor));
+      }, 15000);
+      return () => {
+        cancelled = true; clearTimeout(t); clearTimeout(guard);
+        w.removeEventListener("message", onMsg);
+      };
+    }
+
+    const t = setTimeout(() => finish(chooseMove(board, level, aiColor)), 140);
     return () => { cancelled = true; clearTimeout(t); };
   }, [screen, mode, g, aiColor, level]);
 
