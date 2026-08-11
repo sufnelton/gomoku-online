@@ -6,6 +6,13 @@ import ChatPanel from "./ChatPanel.jsx";
 
 const freshGame = () => freshGameState("black");
 
+// Piece skins. "maple" swaps the stones for image pieces; if either file is
+// missing the board falls back to classic stones rather than rendering blanks.
+const SKINS = {
+  classic: { id: "classic", name: "Classic", black: null, white: null },
+  maple: { id: "maple", name: "Maple", black: "/pieces/slime.png", white: "/pieces/mushroom.png" },
+};
+
 function useIsWide(bp = 820) {
   const [wide, setWide] = useState(false);
   useEffect(() => {
@@ -38,6 +45,8 @@ export default function GomokuAI() {
   const [g, setG] = useState(freshGame);
   const [thinking, setThinking] = useState(false);
   const [ruleNote, setRuleNote] = useState("");
+  const [skinId, setSkinId] = useState("classic");
+  const [skinBroken, setSkinBroken] = useState(false);
 
   // online
   const [name, setName] = useState("");
@@ -93,6 +102,19 @@ export default function GomokuAI() {
   }, [reconnect]);
 
   useEffect(() => { if (name) localStorage.setItem("gomoku_name", name); }, [name]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("gomoku_skin");
+    if (saved && SKINS[saved]) setSkinId(saved);
+  }, []);
+
+  const chooseSkin = useCallback((id) => {
+    setSkinId(id);
+    setSkinBroken(false);
+    localStorage.setItem("gomoku_skin", id);
+  }, []);
+
+  const skin = (skinBroken ? SKINS.classic : SKINS[skinId]) || SKINS.classic;
 
   // AI turn handler (vs-computer only)
   useEffect(() => {
@@ -267,6 +289,36 @@ export default function GomokuAI() {
             {netError && <div style={{ color: "#e0533a", fontSize: 12, marginTop: 8 }}>{netError}</div>}
           </div>
 
+          <div>
+            <div style={label}>Pieces</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {Object.values(SKINS).map((s) => (
+                <button key={s.id} onClick={() => chooseSkin(s.id)}
+                  style={{
+                    flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                    padding: "10px 12px", borderRadius: 9, cursor: "pointer",
+                    border: `1px solid ${skinId === s.id ? "#1AFF8C" : "#3a3530"}`,
+                    background: skinId === s.id ? "rgba(26,255,140,0.08)" : "#262320",
+                    color: skinId === s.id ? "#1AFF8C" : "#9b948a", fontSize: 13, fontWeight: 600,
+                  }}>
+                  <span style={{ display: "flex", gap: 3 }}>
+                    {["black", "white"].map((col) => s[col] ? (
+                      <img key={col} src={s[col]} alt="" onError={() => setSkinBroken(true)}
+                        style={{ width: 18, height: 18, objectFit: "contain", imageRendering: "pixelated" }} />
+                    ) : (
+                      <span key={col} style={{
+                        width: 16, height: 16, borderRadius: "50%",
+                        background: col === "black" ? "#15110d" : "#f2ede4", border: "1px solid #6b645b",
+                      }} />
+                    ))}
+                  </span>
+                  {s.name}
+                </button>
+              ))}
+            </div>
+            {skinBroken && <div style={{ color: "#e0533a", fontSize: 12, marginTop: 8 }}>Maple pieces missing — using classic stones.</div>}
+          </div>
+
           <button onClick={openLeaderboard} style={secondaryBtn}>🏆 Leaderboard</button>
 
           <div style={{ display: "flex", alignItems: "center", gap: 12, color: "#5a544c", fontSize: 12 }}>
@@ -438,14 +490,26 @@ export default function GomokuAI() {
                 {[3, 7, 11].includes(r) && [3, 7, 11].includes(c) && !cell && !isBanned && (
                   <span style={{ position: "absolute", top: "50%", left: "50%", width: 6, height: 6, borderRadius: "50%", background: "#8a6f43", transform: "translate(-50%, -50%)" }} />
                 )}
-                {cell && (
+                {cell && (skin[cell] ? (
+                  <img
+                    src={skin[cell]}
+                    alt={cell}
+                    onError={() => setSkinBroken(true)}
+                    style={{
+                      position: "absolute", top: "50%", left: "50%", width: 28, height: 28, transform: "translate(-50%, -50%)",
+                      objectFit: "contain", imageRendering: "pixelated", zIndex: 2,
+                      filter: isWin ? "drop-shadow(0 0 4px #1AFF8C) drop-shadow(0 0 2px #1AFF8C)" : "drop-shadow(0 1px 2px rgba(0,0,0,.55))",
+                      outline: isLast && !isWin ? "2px solid #e0533a" : "none", outlineOffset: -1, borderRadius: 4,
+                    }}
+                  />
+                ) : (
                   <span style={{
                     position: "absolute", top: "50%", left: "50%", width: 24, height: 24, borderRadius: "50%", transform: "translate(-50%, -50%)",
                     background: cell === "black" ? "radial-gradient(circle at 35% 30%, #4a443c, #15110d)" : "radial-gradient(circle at 35% 30%, #ffffff, #cfc7ba)",
                     boxShadow: isWin ? "0 0 0 2px #1AFF8C, 0 0 8px #1AFF8C" : "0 1px 3px rgba(0,0,0,.5)",
                     outline: isLast && !isWin ? "2px solid #e0533a" : "none", outlineOffset: -2, zIndex: 2,
                   }} />
-                )}
+                ))}
               </button>
             );
           })
@@ -470,9 +534,12 @@ export default function GomokuAI() {
         display: "flex", alignItems: "center", gap: 10, padding: "10px 18px", borderRadius: 999,
         background: "#262320", border: `1px solid ${g.winner ? "#1AFF8C" : "#3a3530"}`, marginBottom: 8, minWidth: 200, justifyContent: "center",
       }}>
-        {!g.winner && (
+        {!g.winner && (skin[g.turn] ? (
+          <img src={skin[g.turn]} alt="" onError={() => setSkinBroken(true)}
+            style={{ width: 20, height: 20, objectFit: "contain", imageRendering: "pixelated" }} />
+        ) : (
           <span style={{ width: 16, height: 16, borderRadius: "50%", background: g.turn === "black" ? "#15110d" : "#f2ede4", border: "1px solid #6b645b" }} />
-        )}
+        ))}
         <span style={{ fontWeight: 600, fontSize: 15, color: g.winner ? "#1AFF8C" : "#f2ede4" }}>{status}</span>
       </div>
 
