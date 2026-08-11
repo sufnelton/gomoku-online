@@ -304,7 +304,7 @@ export default function GomokuAI() {
                   <span style={{ display: "flex", gap: 3 }}>
                     {["black", "white"].map((col) => s[col] ? (
                       <img key={col} src={s[col]} alt="" onError={() => setSkinBroken(true)}
-                        style={{ width: 18, height: 18, objectFit: "contain", imageRendering: "pixelated" }} />
+                        style={{ width: 18, height: 18, objectFit: "contain" }} />
                     ) : (
                       <span key={col} style={{
                         width: 16, height: 16, borderRadius: "50%",
@@ -497,7 +497,7 @@ export default function GomokuAI() {
                     onError={() => setSkinBroken(true)}
                     style={{
                       position: "absolute", top: "50%", left: "50%", width: 28, height: 28, transform: "translate(-50%, -50%)",
-                      objectFit: "contain", imageRendering: "pixelated", zIndex: 2,
+                      objectFit: "contain", zIndex: 2,
                       filter: isWin ? "drop-shadow(0 0 4px #1AFF8C) drop-shadow(0 0 2px #1AFF8C)" : "drop-shadow(0 1px 2px rgba(0,0,0,.55))",
                       outline: isLast && !isWin ? "2px solid #e0533a" : "none", outlineOffset: -1, borderRadius: 4,
                     }}
@@ -536,7 +536,7 @@ export default function GomokuAI() {
       }}>
         {!g.winner && (skin[g.turn] ? (
           <img src={skin[g.turn]} alt="" onError={() => setSkinBroken(true)}
-            style={{ width: 20, height: 20, objectFit: "contain", imageRendering: "pixelated" }} />
+            style={{ width: 20, height: 20, objectFit: "contain" }} />
         ) : (
           <span style={{ width: 16, height: 16, borderRadius: "50%", background: g.turn === "black" ? "#15110d" : "#f2ede4", border: "1px solid #6b645b" }} />
         ))}
