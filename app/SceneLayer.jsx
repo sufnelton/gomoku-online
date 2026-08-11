@@ -8,7 +8,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 
 const VIDEO = "/bg/room.mp4";
 const POSTER = "/bg/room-poster.jpg";
-const MUSIC = "/audio/theme.mp3";
+const MUSIC = "/audio/theme.m4a";
 
 export default function SceneLayer() {
   const [sceneOn, setSceneOn] = useState(true);
