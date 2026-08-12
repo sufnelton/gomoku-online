@@ -296,7 +296,7 @@ export default function GomokuAI() {
   // rather than pixels so it holds at any board size: the board is fluid, so a
   // fixed pixel lift would be a whole row on a phone and half of one on a
   // desktop.
-  const AIM_LIFT_CELLS = 1.5;
+  const AIM_LIFT_CELLS = 2.4;
 
   const cellFromTouch = useCallback((t) => {
     const el = gridRef.current;
@@ -768,7 +768,15 @@ export default function GomokuAI() {
             </button>
           )
         ) : g.winner ? (
-          <button onClick={rematch} className="glass glass-btn glass-accent" style={primaryBtnSm}>New game</button>
+          // A finished game is still worth learning from: take the last move
+          // back and keep playing rather than only being offered a reset.
+          <>
+            <button onClick={undo} disabled={thinking}
+              className="glass glass-btn" style={{ ...secondaryBtn, width: "auto", padding: "10px 20px", fontSize: 14, opacity: thinking ? 0.5 : 1 }}>
+              Undo
+            </button>
+            <button onClick={rematch} className="glass glass-btn glass-accent" style={primaryBtnSm}>New game</button>
+          </>
         ) : (
           <button onClick={undo} disabled={g.history.length === 0 || thinking}
             className="glass glass-btn" style={{ ...secondaryBtn, width: "auto", padding: "10px 20px", fontSize: 14, opacity: g.history.length === 0 || thinking ? 0.5 : 1 }}>
