@@ -11,6 +11,19 @@ const themeCss = `
   :root { --app-bg: #1a1816; }
   body[data-scene="on"] { --app-bg: rgba(20, 18, 16, 0.52); }
 
+  /* Touch hygiene. A drag across the board was competing with three browser
+     defaults at once: dragging the stone sprite, selecting text under the
+     finger, and iOS's long-press callout. All three are off inside the app
+     chrome; chat messages stay selectable so text can still be copied. */
+  body { -webkit-tap-highlight-color: transparent; }
+  button, .noselect, .noselect * {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+  img { -webkit-user-drag: none; user-drag: none; }
+  button { -webkit-user-drag: none; }
+
   /* Glass surfaces. The look is a translucent panel that blurs and saturates
      what sits behind it, a bright hairline edge, and a highlight along the top
      inner edge so it reads as a lit pane rather than a flat tint. */

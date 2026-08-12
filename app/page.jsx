@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { SIZE, emptyBoard, findWin, other, applyMove, freshGameState, isForbidden, forbiddenPoints } from "../lib/gomoku.js";
-import { chooseMove, LEVELS } from "../lib/ai.js";
+import { chooseMove } from "../lib/ai.js";
 import ChatPanel from "./ChatPanel.jsx";
 
 const freshGame = () => freshGameState("black");
@@ -41,7 +41,7 @@ const Cell = React.memo(function Cell({ r, c, cell, isLast, isWin, isBanned, can
           borderRadius: "50%", border: "1.5px dashed rgba(26,255,140,.9)", zIndex: 3 }} />
       )}
       {!cell && ghostColor && (ghostSrc ? (
-        <img src={ghostSrc} alt="" aria-hidden="true"
+        <img src={ghostSrc} alt="" aria-hidden="true" draggable={false}
           style={{ position: "absolute", top: "50%", left: "50%", width: "93%", aspectRatio: "1 / 1", transform: "translate(-50%, -50%)",
             objectFit: "contain", opacity: 0.45, zIndex: 2 }} />
       ) : (
@@ -53,7 +53,7 @@ const Cell = React.memo(function Cell({ r, c, cell, isLast, isWin, isBanned, can
         <span style={{ position: "absolute", top: "50%", left: "50%", width: "20%", aspectRatio: "1 / 1", borderRadius: "50%", background: "#8a6f43", transform: "translate(-50%, -50%)" }} />
       )}
       {cell && (skinSrc ? (
-        <img className="pc" src={skinSrc} alt={cell} onError={onSkinError}
+        <img className="pc" src={skinSrc} alt={cell} draggable={false} onError={onSkinError}
           style={{
             position: "absolute", top: "50%", left: "50%", width: "93%", aspectRatio: "1 / 1", transform: "translate(-50%, -50%)",
             objectFit: "contain", zIndex: 2,
@@ -99,7 +99,7 @@ async function postLobby(body) {
 export default function GomokuAI() {
   const [screen, setScreen] = useState("lobby"); // lobby | waiting | game | leaderboard
   const [mode, setMode] = useState("ai");        // ai | local | online
-  const [level, setLevel] = useState(3);
+  const level = 5; // only the strongest engine is offered
   const [humanColor, setHumanColor] = useState("black");
   const [g, setG] = useState(freshGame);
   const [thinking, setThinking] = useState(false);
@@ -507,37 +507,12 @@ export default function GomokuAI() {
           </div>
 
           <div>
-            <div style={label}>Computer level</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {LEVELS.map((l) => (
-                <button key={l.id} className="glass glass-btn" onClick={() => setLevel(l.id)}
-                  style={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between", textAlign: "left",
-                    padding: "11px 14px", borderRadius: 9, cursor: "pointer",
-                    borderColor: level === l.id ? "rgba(26,255,140,.6)" : undefined,
-                    background: level === l.id ? "rgba(26,255,140,0.13)" : undefined,
-                    color: "#f2ede4",
-                  }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, width: 18, color: level === l.id ? "#1AFF8C" : "#9c9488" }}>{l.id}</span>
-                    <span>
-                      <div style={{ fontWeight: 600, fontSize: 14 }}>{l.name}</div>
-                      <div style={{ fontSize: 11, color: "#b5aea2" }}>{l.blurb}</div>
-                    </span>
-                  </span>
-                  {level === l.id && <span style={{ color: "#1AFF8C", fontSize: 16 }}>✓</span>}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
             <div style={label}>You play</div>
             <div style={{ display: "flex", gap: 8 }}>
               {[["black", "Black (first)"], ["white", "White (second)"]].map(([c, t]) => (
-                <button key={c} onClick={() => setHumanColor(c)}
-                  style={{ flex: 1, padding: "10px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontWeight: 600,
-                    border: `1px solid ${humanColor === c ? "#1AFF8C" : "#3a3530"}`,
+                <button key={c} className="glass glass-btn" onClick={() => setHumanColor(c)}
+                  style={{ flex: 1, padding: "10px", borderRadius: 12, cursor: "pointer", fontSize: 13, fontWeight: 600,
+                    borderColor: humanColor === c ? "rgba(26,255,140,.6)" : undefined,
                     background: humanColor === c ? "rgba(26,255,140,0.08)" : "#262320", color: "#f2ede4" }}>
                   {t}
                 </button>
@@ -588,10 +563,10 @@ export default function GomokuAI() {
               ))}
             </div>
           )}
-          <div style={{ ...label, marginTop: 26 }}>Beat the computer · level 5</div>
+          <div style={{ ...label, marginTop: 26 }}>Beat the computer</div>
           {cpuBoard.length === 0 ? (
             <div className="glass" style={{ color: "#c9c3b8", fontSize: 13, textAlign: "center", padding: 20, borderRadius: 14 }}>
-              Nobody has beaten level 5 yet.
+              Nobody has beaten the computer yet.
             </div>
           ) : (
             <div className="glass" style={{ borderRadius: 14, overflow: "hidden" }}>
@@ -662,7 +637,7 @@ export default function GomokuAI() {
   const boardEl = (
     <div style={{ background: "#d8b878", padding: "min(14px, 3%)", borderRadius: 8, boxShadow: "0 8px 30px rgba(0,0,0,.5)", opacity: thinking ? 0.85 : 1,
       width: "min(478px, 100%)", boxSizing: "border-box", margin: "0 auto" }}>
-      <div ref={gridRef}
+      <div ref={gridRef} className="noselect"
         onTouchStart={aim} onTouchMove={aim} onTouchEnd={release} onTouchCancel={() => setGhost(null)}
         style={{ display: "grid", gridTemplateColumns: `repeat(${SIZE}, 1fr)`, position: "relative",
           touchAction: coarse ? "none" : "manipulation" }}>
@@ -675,7 +650,7 @@ export default function GomokuAI() {
             display: "flex", alignItems: "center", justifyContent: "center",
           }}>
             {skin[g.turn] ? (
-              <img src={skin[g.turn]} alt="" style={{ width: 38, height: 38, objectFit: "contain" }} />
+              <img src={skin[g.turn]} alt="" draggable={false} style={{ width: 38, height: 38, objectFit: "contain" }} />
             ) : (
               <span style={{ width: 32, height: 32, borderRadius: "50%",
                 background: g.turn === "black" ? "radial-gradient(circle at 35% 30%, #4a443c, #15110d)" : "radial-gradient(circle at 35% 30%, #ffffff, #cfc7ba)" }} />
@@ -710,7 +685,7 @@ export default function GomokuAI() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", maxWidth: 472, marginBottom: 14 }}>
         <button onClick={mode === "online" ? leaveOnline : () => setScreen("lobby")} className="glass glass-btn" style={ghostBtn}>← Menu</button>
         <div style={{ fontSize: 12, color: "#b5aea2" }}>
-          {mode === "ai" ? <>You: <b style={{ color: "#f2ede4" }}>{humanColor === "black" ? "Black" : "White"}</b> · <b style={{ color: "#1AFF8C" }}>L{level}</b></>
+          {mode === "ai" ? <>You: <b style={{ color: "#f2ede4" }}>{humanColor === "black" ? "Black" : "White"}</b> · <b style={{ color: "#1AFF8C" }}>Expert</b></>
             : mode === "online" ? <>Code <b style={{ color: "#1AFF8C", letterSpacing: "0.1em" }}>{code}</b> · You: <b style={{ color: "#f2ede4" }}>{onlineColor === "black" ? "Black" : "White"}</b></>
             : "Two players"}
         </div>
