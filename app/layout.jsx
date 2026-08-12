@@ -15,6 +15,9 @@ const themeCss = `
      defaults at once: dragging the stone sprite, selecting text under the
      finger, and iOS's long-press callout. All three are off inside the app
      chrome; chat messages stay selectable so text can still be copied. */
+  /* Stops the rubber-band bounce and pull-to-refresh, so a drag that reaches
+     the edge of the board doesn't drag the page with it. */
+  html, body { overscroll-behavior: none; }
   body { -webkit-tap-highlight-color: transparent; }
   button, .noselect, .noselect * {
     user-select: none;

@@ -307,14 +307,39 @@ export default function GomokuAI() {
     setGhost(p && canClickRef.current && !g.board[p.r][p.c] ? p : null);
   }, [cellFromTouch, g.board, setGhost]);
 
-  const release = useCallback((e) => {
-    // Stop the synthetic click the browser fires after a touch, which would
-    // otherwise run placement a second time.
-    if (e && e.cancelable) e.preventDefault();
+  const release = useCallback(() => {
     const p = pendingRef.current;
     setGhost(null);
     if (p) humanRef.current(p.r, p.c);
   }, [setGhost]);
+
+  /* React registers touchstart/touchmove as PASSIVE listeners, so calling
+   * preventDefault inside onTouchMove is silently ignored -- which is why the
+   * page still rubber-banded while aiming. These are attached natively with
+   * passive:false so the drag belongs to the board and not to the scroller. */
+  const aimRef = useRef(aim);
+  const releaseRef = useRef(release);
+  useEffect(() => { aimRef.current = aim; releaseRef.current = release; });
+
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el) return;
+    const stop = (e) => { if (e.cancelable) e.preventDefault(); };
+    const onStart = (e) => { aimRef.current(e); stop(e); };
+    const onMove = (e) => { aimRef.current(e); stop(e); };
+    const onEnd = (e) => { releaseRef.current(); stop(e); };
+    const onCancel = () => setGhost(null);
+    el.addEventListener("touchstart", onStart, { passive: false });
+    el.addEventListener("touchmove", onMove, { passive: false });
+    el.addEventListener("touchend", onEnd, { passive: false });
+    el.addEventListener("touchcancel", onCancel);
+    return () => {
+      el.removeEventListener("touchstart", onStart);
+      el.removeEventListener("touchmove", onMove);
+      el.removeEventListener("touchend", onEnd);
+      el.removeEventListener("touchcancel", onCancel);
+    };
+  }, [screen, mode, setGhost]);
 
   // Which side's forbidden points to mark: only ever the one a human here can play.
   const markColor = g.winner ? null
@@ -638,7 +663,6 @@ export default function GomokuAI() {
     <div style={{ background: "#d8b878", padding: "min(14px, 3%)", borderRadius: 8, boxShadow: "0 8px 30px rgba(0,0,0,.5)", opacity: thinking ? 0.85 : 1,
       width: "min(478px, 100%)", boxSizing: "border-box", margin: "0 auto" }}>
       <div ref={gridRef} className="noselect"
-        onTouchStart={aim} onTouchMove={aim} onTouchEnd={release} onTouchCancel={() => setGhost(null)}
         style={{ display: "grid", gridTemplateColumns: `repeat(${SIZE}, 1fr)`, position: "relative",
           touchAction: coarse ? "none" : "manipulation" }}>
         {pending && (
