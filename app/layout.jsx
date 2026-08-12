@@ -9,7 +9,49 @@ export const metadata = {
 // reads through it without costing legibility.
 const themeCss = `
   :root { --app-bg: #1a1816; }
-  body[data-scene="on"] { --app-bg: rgba(22, 20, 18, 0.80); }
+  body[data-scene="on"] { --app-bg: rgba(20, 18, 16, 0.52); }
+
+  /* Glass surfaces. The look is a translucent panel that blurs and saturates
+     what sits behind it, a bright hairline edge, and a highlight along the top
+     inner edge so it reads as a lit pane rather than a flat tint. */
+  .glass {
+    background: rgba(255, 255, 255, 0.07);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.38),
+      inset 0 1px 0 rgba(255, 255, 255, 0.30),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+    position: relative;
+    overflow: hidden;
+  }
+  /* A soft sheen across the top, which is what sells it as glass. */
+  .glass::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 45%;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0));
+    pointer-events: none;
+  }
+  .glass > * { position: relative; }
+
+  .glass-btn { transition: background 140ms ease, border-color 140ms ease, transform 100ms ease; }
+  .glass-btn:hover { background: rgba(255, 255, 255, 0.13); border-color: rgba(255, 255, 255, 0.28); }
+  .glass-btn:active { transform: scale(0.985); }
+
+  .glass-accent {
+    background: linear-gradient(160deg, rgba(26, 255, 140, 0.92), rgba(26, 255, 140, 0.72));
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    box-shadow: 0 8px 26px rgba(26, 255, 140, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  }
+  .glass-accent:hover { background: linear-gradient(160deg, rgba(26, 255, 140, 1), rgba(26, 255, 140, 0.82)); }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .glass { background: rgba(26, 24, 22, 0.92); backdrop-filter: none; -webkit-backdrop-filter: none; }
+    .glass::before { display: none; }
+  }
 
   /* Stones settle in when placed. The keyframes carry the centring transform,
      since animating transform would otherwise drop it mid-flight. */

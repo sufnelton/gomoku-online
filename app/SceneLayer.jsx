@@ -58,11 +58,11 @@ export default function SceneLayer() {
   }, [musicOn]);
 
   const btn = (active) => ({
-    width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center",
-    borderRadius: 9, cursor: "pointer", fontSize: 15, lineHeight: 1,
-    border: `1px solid ${active ? "#1AFF8C" : "#3a3530"}`,
-    background: active ? "rgba(26,255,140,0.10)" : "rgba(38,35,32,0.82)",
-    color: active ? "#1AFF8C" : "#9b948a", backdropFilter: "blur(6px)",
+    width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center",
+    borderRadius: 12, cursor: "pointer", fontSize: 15, lineHeight: 1,
+    borderColor: active ? "rgba(26,255,140,.6)" : undefined,
+    background: active ? "rgba(26,255,140,0.16)" : undefined,
+    color: active ? "#1AFF8C" : "#e7e2d8",
   });
 
   return (
@@ -88,13 +88,13 @@ export default function SceneLayer() {
       <audio ref={audioRef} src={MUSIC} loop preload="none" onError={() => setMusicMissing(true)} />
 
       <div style={{ position: "fixed", top: 12, right: 12, zIndex: 20, display: "flex", gap: 8 }}>
-        <button onClick={() => setSceneOn((v) => !v)} style={btn(sceneOn)}
+        <button className="glass glass-btn" onClick={() => setSceneOn((v) => !v)} style={btn(sceneOn)}
           title={sceneOn ? "Hide background" : "Show background"}
           aria-label={sceneOn ? "Hide background" : "Show background"}>
           {sceneOn ? "🌿" : "▢"}
         </button>
         {!musicMissing && (
-          <button onClick={toggleMusic} style={btn(musicOn)}
+          <button className="glass glass-btn" onClick={toggleMusic} style={btn(musicOn)}
             title={musicOn ? "Mute music" : "Play music"}
             aria-label={musicOn ? "Mute music" : "Play music"}>
             {musicOn ? "♪" : "🔇"}

@@ -20,11 +20,11 @@ export default function ChatPanel({ messages, myColor, names, onSend, disabled, 
   const oppName = names ? (myColor === "black" ? names.white : names.black) : null;
 
   return (
-    <div style={{
+    <div className="glass" style={{
       display: "flex", flexDirection: "column", width: "100%", maxWidth: 300, height: height || 300,
-      background: "#262320", border: "1px solid #3a3530", borderRadius: 10, overflow: "hidden",
+      borderRadius: 14, overflow: "hidden",
     }}>
-      <div style={{ padding: "10px 14px", borderBottom: "1px solid #3a3530", fontSize: 13, fontWeight: 700, color: "#f2ede4" }}>
+      <div style={{ padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,.14)", fontSize: 13, fontWeight: 700, color: "#f2ede4" }}>
         Chat {oppName ? <span style={{ color: "#9b948a", fontWeight: 500 }}>· with {oppName}</span> : null}
       </div>
 
@@ -59,7 +59,7 @@ export default function ChatPanel({ messages, myColor, names, onSend, disabled, 
           placeholder={disabled ? "Waiting…" : "Message"}
           disabled={disabled}
           maxLength={200}
-          style={{ flex: 1, padding: "9px 11px", borderRadius: 8, border: "1px solid #3a3530", background: "#1a1816", color: "#f2ede4", fontSize: 13 }}
+          className="glass" style={{ flex: 1, padding: "9px 11px", borderRadius: 11, color: "#f2ede4", fontSize: 13, outline: "none" }}
         />
         <button onClick={send} disabled={disabled}
           style={{ padding: "9px 14px", borderRadius: 8, border: "1px solid #1AFF8C", background: disabled ? "#2a2723" : "#1AFF8C", color: disabled ? "#6b645b" : "#15110d", fontSize: 13, fontWeight: 700, cursor: disabled ? "default" : "pointer" }}>

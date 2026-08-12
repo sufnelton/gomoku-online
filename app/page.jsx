@@ -443,7 +443,7 @@ export default function GomokuAI() {
               onChange={(e) => setName(e.target.value.slice(0, 16))}
               placeholder="Your name"
               maxLength={16}
-              style={{ width: "100%", boxSizing: "border-box", padding: "11px 13px", borderRadius: 9, border: "1px solid #3a3530", background: "#262320", color: "#f2ede4", fontSize: 15, fontWeight: 600 }}
+              className="glass" style={{ width: "100%", boxSizing: "border-box", padding: "11px 13px", borderRadius: 12, color: "#f2ede4", fontSize: 15, fontWeight: 600, outline: "none" }}
             />
           </div>
 
@@ -453,9 +453,9 @@ export default function GomokuAI() {
               value={pass}
               onChange={(e) => setPass(e.target.value.slice(0, 32))}
               placeholder="Passphrase (optional) — keeps strangers out"
-              style={{ width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 9, border: "1px solid #3a3530", background: "#262320", color: "#f2ede4", fontSize: 14, marginBottom: 8 }}
+              className="glass" style={{ width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 12, color: "#f2ede4", fontSize: 14, marginBottom: 8, outline: "none" }}
             />
-            <button onClick={createOnline} style={primaryBtn}>Create game · get a code</button>
+            <button onClick={createOnline} className="glass glass-btn glass-accent" style={primaryBtn}>Create game · get a code</button>
             <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
               <input
                 value={joinInput}
@@ -463,9 +463,9 @@ export default function GomokuAI() {
                 onKeyDown={(e) => e.key === "Enter" && joinOnline()}
                 placeholder="CODE"
                 maxLength={4}
-                style={{ flex: 1, padding: "10px 12px", borderRadius: 9, border: "1px solid #3a3530", background: "#262320", color: "#f2ede4", fontSize: 15, letterSpacing: "0.2em", textAlign: "center", fontWeight: 700 }}
+                className="glass" style={{ flex: 1, padding: "10px 12px", borderRadius: 12, color: "#f2ede4", fontSize: 15, letterSpacing: "0.2em", textAlign: "center", fontWeight: 700, outline: "none" }}
               />
-              <button onClick={joinOnline} style={{ ...secondaryBtn, padding: "10px 18px", fontSize: 14 }}>Join</button>
+              <button onClick={joinOnline} className="glass glass-btn" style={{ ...secondaryBtn, padding: "10px 18px", fontSize: 14 }}>Join</button>
             </div>
             {netError && <div style={{ color: "#e0533a", fontSize: 12, marginTop: 8 }}>{netError}</div>}
           </div>
@@ -474,12 +474,12 @@ export default function GomokuAI() {
             <div style={label}>Pieces</div>
             <div style={{ display: "flex", gap: 8 }}>
               {Object.values(SKINS).map((s) => (
-                <button key={s.id} onClick={() => chooseSkin(s.id)}
+                <button key={s.id} className="glass glass-btn" onClick={() => chooseSkin(s.id)}
                   style={{
                     flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                     padding: "10px 12px", borderRadius: 9, cursor: "pointer",
-                    border: `1px solid ${skinId === s.id ? "#1AFF8C" : "#3a3530"}`,
-                    background: skinId === s.id ? "rgba(26,255,140,0.08)" : "#262320",
+                    borderColor: skinId === s.id ? "rgba(26,255,140,.6)" : undefined,
+                    background: skinId === s.id ? "rgba(26,255,140,0.13)" : undefined,
                     color: skinId === s.id ? "#1AFF8C" : "#9b948a", fontSize: 13, fontWeight: 600,
                   }}>
                   <span style={{ display: "flex", gap: 3 }}>
@@ -500,7 +500,7 @@ export default function GomokuAI() {
             {skinBroken && <div style={{ color: "#e0533a", fontSize: 12, marginTop: 8 }}>Maple pieces missing — using classic stones.</div>}
           </div>
 
-          <button onClick={openLeaderboard} style={secondaryBtn}>🏆 Leaderboard</button>
+          <button onClick={openLeaderboard} className="glass glass-btn" style={secondaryBtn}>🏆 Leaderboard</button>
 
           <div style={{ display: "flex", alignItems: "center", gap: 12, color: "#5a544c", fontSize: 12 }}>
             <div style={{ flex: 1, height: 1, background: "#3a3530" }} /> OR <div style={{ flex: 1, height: 1, background: "#3a3530" }} />
@@ -510,12 +510,12 @@ export default function GomokuAI() {
             <div style={label}>Computer level</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {LEVELS.map((l) => (
-                <button key={l.id} onClick={() => setLevel(l.id)}
+                <button key={l.id} className="glass glass-btn" onClick={() => setLevel(l.id)}
                   style={{
                     display: "flex", alignItems: "center", justifyContent: "space-between", textAlign: "left",
                     padding: "11px 14px", borderRadius: 9, cursor: "pointer",
-                    border: `1px solid ${level === l.id ? "#1AFF8C" : "#3a3530"}`,
-                    background: level === l.id ? "rgba(26,255,140,0.08)" : "#262320",
+                    borderColor: level === l.id ? "rgba(26,255,140,.6)" : undefined,
+                    background: level === l.id ? "rgba(26,255,140,0.13)" : undefined,
                     color: "#f2ede4",
                   }}>
                   <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -545,8 +545,8 @@ export default function GomokuAI() {
             </div>
           </div>
 
-          <button onClick={() => start("ai")} style={secondaryBtn}>Play vs Computer</button>
-          <button onClick={() => start("local")} style={secondaryBtn}>Two players (same device)</button>
+          <button onClick={() => start("ai")} className="glass glass-btn" style={secondaryBtn}>Play vs Computer</button>
+          <button onClick={() => start("local")} className="glass glass-btn" style={secondaryBtn}>Two players (same device)</button>
         </div>
       </div>
     );
@@ -557,7 +557,7 @@ export default function GomokuAI() {
     return (
       <div style={wrap}>
         <div style={{ width: "100%", maxWidth: 440, display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-          <button onClick={() => setScreen("lobby")} style={ghostBtn}>← Menu</button>
+          <button onClick={() => setScreen("lobby")} className="glass glass-btn" style={ghostBtn}>← Menu</button>
           <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>🏆 Leaderboard</h1>
           <div style={{ width: 52 }} />
         </div>
@@ -569,8 +569,8 @@ export default function GomokuAI() {
               No games yet — play someone online to get on the board.
             </div>
           ) : (
-            <div style={{ border: "1px solid #3a3530", borderRadius: 10, overflow: "hidden" }}>
-              <div style={{ display: "flex", padding: "10px 14px", background: "#262320", fontSize: 11, color: "#9b948a", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+            <div className="glass" style={{ borderRadius: 14, overflow: "hidden" }}>
+              <div style={{ display: "flex", padding: "10px 14px", background: "rgba(255,255,255,.06)", fontSize: 11, color: "#9b948a", letterSpacing: "0.06em", textTransform: "uppercase" }}>
                 <span style={{ width: 32 }}>#</span>
                 <span style={{ flex: 1 }}>Player</span>
                 <span style={{ width: 44, textAlign: "right" }}>W</span>
@@ -590,11 +590,11 @@ export default function GomokuAI() {
           )}
           <div style={{ ...label, marginTop: 26 }}>Beat the computer · level 5</div>
           {cpuBoard.length === 0 ? (
-            <div style={{ color: "#9b948a", fontSize: 13, textAlign: "center", padding: 20, border: "1px solid #3a3530", borderRadius: 10 }}>
+            <div className="glass" style={{ color: "#c9c3b8", fontSize: 13, textAlign: "center", padding: 20, borderRadius: 14 }}>
               Nobody has beaten level 5 yet.
             </div>
           ) : (
-            <div style={{ border: "1px solid #3a3530", borderRadius: 10, overflow: "hidden" }}>
+            <div className="glass" style={{ borderRadius: 14, overflow: "hidden" }}>
               {cpuBoard.map((p, i) => (
                 <div key={p.name + i} style={{ display: "flex", alignItems: "center", padding: "11px 14px", borderTop: i ? "1px solid #2a2723" : "none", fontSize: 14, color: "#f2ede4" }}>
                   <span style={{ width: 32, fontWeight: 700, color: i === 0 ? "#1AFF8C" : "#6b645b" }}>{i + 1}</span>
@@ -708,7 +708,7 @@ export default function GomokuAI() {
   return (
     <div style={wrap}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", maxWidth: 472, marginBottom: 14 }}>
-        <button onClick={mode === "online" ? leaveOnline : () => setScreen("lobby")} style={ghostBtn}>← Menu</button>
+        <button onClick={mode === "online" ? leaveOnline : () => setScreen("lobby")} className="glass glass-btn" style={ghostBtn}>← Menu</button>
         <div style={{ fontSize: 12, color: "#9b948a" }}>
           {mode === "ai" ? <>You: <b style={{ color: "#f2ede4" }}>{humanColor === "black" ? "Black" : "White"}</b> · <b style={{ color: "#1AFF8C" }}>L{level}</b></>
             : mode === "online" ? <>Code <b style={{ color: "#1AFF8C", letterSpacing: "0.1em" }}>{code}</b> · You: <b style={{ color: "#f2ede4" }}>{onlineColor === "black" ? "Black" : "White"}</b></>
@@ -719,8 +719,9 @@ export default function GomokuAI() {
 
       <div style={{
         display: "flex", alignItems: "center", gap: 10, padding: "10px 18px", borderRadius: 999,
-        background: "#262320", border: `1px solid ${g.winner ? "#1AFF8C" : "#3a3530"}`, marginBottom: 8, minWidth: 200, justifyContent: "center",
-      }}>
+        marginBottom: 8, minWidth: 200, justifyContent: "center",
+        borderColor: g.winner ? "rgba(26,255,140,.55)" : undefined,
+      }} className="glass">
         {!g.winner && (skin[g.turn] ? (
           <img src={skin[g.turn]} alt="" onError={() => setSkinBroken(true)}
             style={{ width: 20, height: 20, objectFit: "contain" }} />
@@ -730,7 +731,7 @@ export default function GomokuAI() {
         <span style={{ fontWeight: 600, fontSize: 15, color: g.winner ? "#1AFF8C" : "#f2ede4" }}>{status}</span>
       </div>
 
-      <div style={{ fontSize: 12, marginBottom: 10, minHeight: 16, textAlign: "center", color: ruleNote ? "#e0533a" : pending ? "#1AFF8C" : "#6b645b" }}>
+      <div className="glass" style={{ fontSize: 12, marginBottom: 10, padding: "6px 14px", borderRadius: 999, textAlign: "center", color: ruleNote ? "#ff8f7a" : pending ? "#1AFF8C" : "#c9c3b8" }}>
         {ruleNote || (pending ? "Slide to aim — lift to place." : "No double three, unless it blocks a five — ✕ marks a point you can't take.")}
       </div>
 
@@ -761,7 +762,7 @@ export default function GomokuAI() {
       <div style={{ display: "flex", gap: 12, marginTop: 22 }}>
         {mode === "online" ? (
           g.winner ? (
-            <button onClick={rematchOnline} style={primaryBtnSm}>Rematch</button>
+            <button onClick={rematchOnline} className="glass glass-btn glass-accent" style={primaryBtnSm}>Rematch</button>
           ) : (
             <button onClick={resignOnline} disabled={!g.players?.white}
               style={{ ...secondaryBtn, width: "auto", padding: "10px 20px", fontSize: 14, opacity: g.players?.white ? 1 : 0.5 }}>
@@ -769,7 +770,7 @@ export default function GomokuAI() {
             </button>
           )
         ) : g.winner ? (
-          <button onClick={rematch} style={primaryBtnSm}>New game</button>
+          <button onClick={rematch} className="glass glass-btn glass-accent" style={primaryBtnSm}>New game</button>
         ) : (
           <button onClick={undo} disabled={g.history.length === 0 || thinking}
             style={{ ...secondaryBtn, width: "auto", padding: "10px 20px", fontSize: 14, opacity: g.history.length === 0 || thinking ? 0.5 : 1 }}>
@@ -792,7 +793,7 @@ export default function GomokuAI() {
 
 const wrap = { minHeight: "100vh", background: "var(--app-bg, #1a1816)", color: "#f2ede4", fontFamily: "'Inter', system-ui, sans-serif", display: "flex", flexDirection: "column", alignItems: "center", padding: "24px 16px", boxSizing: "border-box", position: "relative", zIndex: 1 };
 const label = { fontSize: 11, color: "#9b948a", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 };
-const primaryBtn = { width: "100%", padding: "14px 20px", borderRadius: 10, border: "1px solid #1AFF8C", background: "#1AFF8C", color: "#15110d", fontSize: 16, fontWeight: 700, cursor: "pointer" };
+const primaryBtn = { width: "100%", padding: "14px 20px", borderRadius: 14, color: "#0d1a12", fontSize: 16, fontWeight: 700, cursor: "pointer" };
 const primaryBtnSm = { ...primaryBtn, width: "auto", padding: "10px 20px", fontSize: 14 };
-const secondaryBtn = { width: "100%", padding: "12px 20px", borderRadius: 10, border: "1px solid #3a3530", background: "#262320", color: "#f2ede4", fontSize: 15, fontWeight: 600, cursor: "pointer" };
-const ghostBtn = { padding: "8px 12px", borderRadius: 8, border: "1px solid #3a3530", background: "transparent", color: "#9b948a", fontSize: 13, fontWeight: 600, cursor: "pointer" };
+const secondaryBtn = { width: "100%", padding: "12px 20px", borderRadius: 14, color: "#f2ede4", fontSize: 15, fontWeight: 600, cursor: "pointer" };
+const ghostBtn = { padding: "8px 12px", borderRadius: 11, color: "#e7e2d8", fontSize: 13, fontWeight: 600, cursor: "pointer" };
