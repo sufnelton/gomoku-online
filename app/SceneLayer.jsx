@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import * as sfx from "./sfx.js";
 
 /* Animated background + looping music, shared by every screen.
  * Keeps its own state so it can live in the layout rather than being threaded
@@ -14,6 +15,7 @@ export default function SceneLayer() {
   const [sceneOn, setSceneOn] = useState(true);
   const [musicOn, setMusicOn] = useState(false);
   const [musicMissing, setMusicMissing] = useState(false);
+  const [sfxOn, setSfxOn] = useState(true);
   const [reduced, setReduced] = useState(false);
   const audioRef = useRef(null);
   const seeded = useRef(false);
@@ -29,6 +31,14 @@ export default function SceneLayer() {
   useEffect(() => {
     const s = localStorage.getItem("gomoku_scene");
     if (s !== null) setSceneOn(s === "1");
+  }, []);
+
+  // Effects are separate from the music: the theme is a bed you opt into, the
+  // move and result sounds are the game telling you what happened, so they
+  // default on and get their own switch.
+  useEffect(() => { setSfxOn(!sfx.loadMuted()); }, []);
+  const toggleSfx = useCallback(() => {
+    setSfxOn((on) => { sfx.setMuted(on); return !on; });
   }, []);
 
   useEffect(() => {
@@ -100,6 +110,11 @@ export default function SceneLayer() {
             {musicOn ? "♪" : "🔇"}
           </button>
         )}
+        <button className="glass glass-btn" onClick={toggleSfx} style={btn(sfxOn)}
+          title={sfxOn ? "Mute sound effects" : "Unmute sound effects"}
+          aria-label={sfxOn ? "Mute sound effects" : "Unmute sound effects"}>
+          {sfxOn ? "🔔" : "🔕"}
+        </button>
       </div>
     </>
   );

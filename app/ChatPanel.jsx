@@ -25,12 +25,12 @@ export default function ChatPanel({ messages, myColor, names, onSend, disabled, 
       borderRadius: 14, overflow: "hidden",
     }}>
       <div style={{ padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,.14)", fontSize: 13, fontWeight: 700, color: "#f2ede4" }}>
-        Chat {oppName ? <span style={{ color: "#b5aea2", fontWeight: 500 }}>· with {oppName}</span> : null}
+        Chat {oppName ? <span style={{ color: "var(--txt-2)", fontWeight: 500 }}>· with {oppName}</span> : null}
       </div>
 
       <div ref={listRef} style={{ flex: 1, overflowY: "auto", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
         {messages.length === 0 && (
-          <div style={{ color: "#9c9488", fontSize: 12, margin: "auto", textAlign: "center" }}>
+          <div style={{ color: "var(--txt-3)", fontSize: 12, margin: "auto", textAlign: "center" }}>
             {disabled ? "Waiting for your opponent…" : "Say hi 👋"}
           </div>
         )}
@@ -38,7 +38,7 @@ export default function ChatPanel({ messages, myColor, names, onSend, disabled, 
           const mine = m.color === myColor;
           return (
             <div key={m.seq} style={{ display: "flex", flexDirection: "column", alignItems: mine ? "flex-end" : "flex-start" }}>
-              <div style={{ fontSize: 10, color: mine ? "#1AFF8C" : "#b5aea2", marginBottom: 2 }}>{m.name}</div>
+              <div style={{ fontSize: 10, color: mine ? "#1AFF8C" : "var(--txt-2)", marginBottom: 2 }}>{m.name}</div>
               <div style={{
                 maxWidth: "85%", padding: "6px 10px", borderRadius: 9, fontSize: 13, lineHeight: 1.35,
                 color: "#f2ede4", background: mine ? "rgba(26,255,140,0.12)" : "#1f1c19",

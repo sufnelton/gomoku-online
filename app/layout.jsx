@@ -8,8 +8,33 @@ export const metadata = {
 // While the scene is on the page background becomes a scrim so the animation
 // reads through it without costing legibility.
 const themeCss = `
-  :root { --app-bg: #1a1816; }
-  body[data-scene="on"] { --app-bg: rgba(20, 18, 16, 0.52); }
+  :root {
+    --app-bg: #1a1816;
+    /* Muted text ramp, brightest to quietest. Named by rank rather than by
+       colour so the scene can move all of it at once. */
+    --txt-2: #b5aea2;
+    --txt-3: #9c9488;
+    --txt-4: #8d8579;
+  }
+
+  /* Over the scene the backdrop is a photograph, not a flat dark field, and
+     greys picked against #1a1816 wash straight out on the bright half of it.
+     Two things fix that together: lift the whole ramp, and give every glyph its
+     own dark halo so it carries over sky as well as over water. Neither is
+     enough alone -- a lifted grey still sits at ~2:1 on the pale sky. */
+  body[data-scene="on"] {
+    --app-bg: rgba(20, 18, 16, 0.52);
+    --txt-2: #dcd5c9;
+    --txt-3: #c8c1b4;
+    --txt-4: #bab2a5;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95), 0 0 4px rgba(0, 0, 0, 0.8), 0 0 12px rgba(0, 0, 0, 0.6);
+  }
+  /* Opaque fills are their own backdrop, so the halo only muddies dark-on-light. */
+  body[data-scene="on"] .glass-accent { text-shadow: none; }
+
+  /* Unstyled placeholders fall to a UA grey that has no idea what it is sitting
+     on -- the worst-contrast text on the lobby screen. */
+  input::placeholder { color: var(--txt-3); opacity: 1; }
 
   /* Touch hygiene. A drag across the board was competing with three browser
      defaults at once: dragging the stone sprite, selecting text under the
