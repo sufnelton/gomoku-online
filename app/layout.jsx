@@ -15,18 +15,10 @@ const themeCss = `
      defaults at once: dragging the stone sprite, selecting text under the
      finger, and iOS's long-press callout. All three are off inside the app
      chrome; chat messages stay selectable so text can still be copied. */
-  /* iOS rubber-bands the DOCUMENT whatever the board does with the touch, so
-     the document stops being the scroller: the page is locked to the viewport
-     and scrolling moves to an inner container instead. overscroll-behavior on
-     that container keeps a drag past its end from chaining back out. */
-  html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
-  #app-scroll {
-    height: 100%;
-    overflow-y: auto;
-    overflow-x: hidden;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-  }
+  /* Keeps pull-to-refresh and edge chaining out of the way of a drag. The
+     document stays the scroller: locking it was solving a bounce that turned
+     out to be a layout reflow, and cost more risk than it removed. */
+  html, body { overscroll-behavior: none; }
   body { -webkit-tap-highlight-color: transparent; }
   button, .noselect, .noselect * {
     user-select: none;
@@ -92,10 +84,10 @@ const themeCss = `
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body style={{ margin: 0, background: "#1a1816", height: "100%", overflow: "hidden" }}>
+      <body style={{ margin: 0, background: "#1a1816" }}>
         <style dangerouslySetInnerHTML={{ __html: themeCss }} />
         <SceneLayer />
-        <div id="app-scroll">{children}</div>
+        {children}
       </body>
     </html>
   );

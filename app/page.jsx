@@ -730,7 +730,9 @@ export default function GomokuAI() {
         <span style={{ fontWeight: 600, fontSize: 15, color: g.winner ? "#1AFF8C" : "#f2ede4" }}>{status}</span>
       </div>
 
-      <div style={{ fontSize: 12, marginBottom: 12, maxWidth: 340, textAlign: "center", lineHeight: 1.45, color: ruleNote ? "#ff9d8a" : pending ? "#1AFF8C" : "#a49d92" }}>
+      <div style={{ fontSize: 12, marginBottom: 12, maxWidth: 340, textAlign: "center", lineHeight: 1.45,
+        minHeight: "2.9em", display: "flex", alignItems: "center", justifyContent: "center",
+        color: ruleNote ? "#ff9d8a" : pending ? "#1AFF8C" : "#a49d92" }}>
         {ruleNote || (pending ? "Slide to aim — lift to place." : "No double three, unless it blocks a five — ✕ marks a point you can't take.")}
       </div>
 
@@ -790,7 +792,7 @@ export default function GomokuAI() {
   );
 }
 
-const wrap = { minHeight: "100%", background: "var(--app-bg, #1a1816)", color: "#f2ede4", fontFamily: "'Inter', system-ui, sans-serif", display: "flex", flexDirection: "column", alignItems: "center", padding: "24px 16px", boxSizing: "border-box", position: "relative", zIndex: 1 };
+const wrap = { minHeight: "100vh", background: "var(--app-bg, #1a1816)", color: "#f2ede4", fontFamily: "'Inter', system-ui, sans-serif", display: "flex", flexDirection: "column", alignItems: "center", padding: "24px 16px", boxSizing: "border-box", position: "relative", zIndex: 1 };
 const label = { fontSize: 11, color: "#b5aea2", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 };
 const primaryBtn = { width: "100%", padding: "14px 20px", borderRadius: 14, color: "#0d1a12", fontSize: 16, fontWeight: 700, cursor: "pointer" };
 const primaryBtnSm = { ...primaryBtn, width: "auto", padding: "10px 20px", fontSize: 14 };
