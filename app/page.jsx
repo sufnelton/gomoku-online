@@ -433,7 +433,7 @@ export default function GomokuAI() {
     return (
       <div style={wrap}>
         <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.02em", margin: "0 0 4px" }}>Gomoku</h1>
-        <p style={{ fontSize: 13, color: "#9b948a", margin: "0 0 26px" }}>Five in a row</p>
+        <p style={{ fontSize: 13, color: "#b5aea2", margin: "0 0 26px" }}>Five in a row</p>
 
         <div style={{ width: "100%", maxWidth: 340, display: "flex", flexDirection: "column", gap: 22 }}>
           <div>
@@ -480,7 +480,7 @@ export default function GomokuAI() {
                     padding: "10px 12px", borderRadius: 9, cursor: "pointer",
                     borderColor: skinId === s.id ? "rgba(26,255,140,.6)" : undefined,
                     background: skinId === s.id ? "rgba(26,255,140,0.13)" : undefined,
-                    color: skinId === s.id ? "#1AFF8C" : "#9b948a", fontSize: 13, fontWeight: 600,
+                    color: skinId === s.id ? "#1AFF8C" : "#b5aea2", fontSize: 13, fontWeight: 600,
                   }}>
                   <span style={{ display: "flex", gap: 3 }}>
                     {["black", "white"].map((col) => s[col] ? (
@@ -489,7 +489,7 @@ export default function GomokuAI() {
                     ) : (
                       <span key={col} style={{
                         width: 16, height: 16, borderRadius: "50%",
-                        background: col === "black" ? "#15110d" : "#f2ede4", border: "1px solid #6b645b",
+                        background: col === "black" ? "#15110d" : "#f2ede4", border: "1px solid #9c9488",
                       }} />
                     ))}
                   </span>
@@ -502,7 +502,7 @@ export default function GomokuAI() {
 
           <button onClick={openLeaderboard} className="glass glass-btn" style={secondaryBtn}>🏆 Leaderboard</button>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 12, color: "#5a544c", fontSize: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, color: "#8d8579", fontSize: 12 }}>
             <div style={{ flex: 1, height: 1, background: "#3a3530" }} /> OR <div style={{ flex: 1, height: 1, background: "#3a3530" }} />
           </div>
 
@@ -519,10 +519,10 @@ export default function GomokuAI() {
                     color: "#f2ede4",
                   }}>
                   <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, width: 18, color: level === l.id ? "#1AFF8C" : "#6b645b" }}>{l.id}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, width: 18, color: level === l.id ? "#1AFF8C" : "#9c9488" }}>{l.id}</span>
                     <span>
                       <div style={{ fontWeight: 600, fontSize: 14 }}>{l.name}</div>
-                      <div style={{ fontSize: 11, color: "#9b948a" }}>{l.blurb}</div>
+                      <div style={{ fontSize: 11, color: "#b5aea2" }}>{l.blurb}</div>
                     </span>
                   </span>
                   {level === l.id && <span style={{ color: "#1AFF8C", fontSize: 16 }}>✓</span>}
@@ -563,14 +563,14 @@ export default function GomokuAI() {
         </div>
         <div style={{ width: "100%", maxWidth: 440 }}>
           {lbLoading ? (
-            <div style={{ color: "#9b948a", fontSize: 14, textAlign: "center", padding: 30 }}>Loading…</div>
+            <div style={{ color: "#b5aea2", fontSize: 14, textAlign: "center", padding: 30 }}>Loading…</div>
           ) : leaderboard.length === 0 ? (
-            <div style={{ color: "#9b948a", fontSize: 14, textAlign: "center", padding: 30 }}>
+            <div style={{ color: "#b5aea2", fontSize: 14, textAlign: "center", padding: 30 }}>
               No games yet — play someone online to get on the board.
             </div>
           ) : (
             <div className="glass" style={{ borderRadius: 14, overflow: "hidden" }}>
-              <div style={{ display: "flex", padding: "10px 14px", background: "rgba(255,255,255,.06)", fontSize: 11, color: "#9b948a", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+              <div style={{ display: "flex", padding: "10px 14px", background: "rgba(255,255,255,.06)", fontSize: 11, color: "#b5aea2", letterSpacing: "0.06em", textTransform: "uppercase" }}>
                 <span style={{ width: 32 }}>#</span>
                 <span style={{ flex: 1 }}>Player</span>
                 <span style={{ width: 44, textAlign: "right" }}>W</span>
@@ -579,11 +579,11 @@ export default function GomokuAI() {
               </div>
               {leaderboard.map((p, i) => (
                 <div key={p.name + i} style={{ display: "flex", alignItems: "center", padding: "11px 14px", borderTop: "1px solid #2a2723", fontSize: 14, color: "#f2ede4" }}>
-                  <span style={{ width: 32, fontWeight: 700, color: i === 0 ? "#1AFF8C" : "#6b645b" }}>{i + 1}</span>
+                  <span style={{ width: 32, fontWeight: 700, color: i === 0 ? "#1AFF8C" : "#9c9488" }}>{i + 1}</span>
                   <span style={{ flex: 1, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
                   <span style={{ width: 44, textAlign: "right", color: "#1AFF8C", fontWeight: 700 }}>{p.wins}</span>
-                  <span style={{ width: 44, textAlign: "right", color: "#9b948a" }}>{p.losses}</span>
-                  <span style={{ width: 56, textAlign: "right", color: "#9b948a" }}>{p.winRate}%</span>
+                  <span style={{ width: 44, textAlign: "right", color: "#b5aea2" }}>{p.losses}</span>
+                  <span style={{ width: 56, textAlign: "right", color: "#b5aea2" }}>{p.winRate}%</span>
                 </div>
               ))}
             </div>
@@ -597,14 +597,14 @@ export default function GomokuAI() {
             <div className="glass" style={{ borderRadius: 14, overflow: "hidden" }}>
               {cpuBoard.map((p, i) => (
                 <div key={p.name + i} style={{ display: "flex", alignItems: "center", padding: "11px 14px", borderTop: i ? "1px solid #2a2723" : "none", fontSize: 14, color: "#f2ede4" }}>
-                  <span style={{ width: 32, fontWeight: 700, color: i === 0 ? "#1AFF8C" : "#6b645b" }}>{i + 1}</span>
+                  <span style={{ width: 32, fontWeight: 700, color: i === 0 ? "#1AFF8C" : "#9c9488" }}>{i + 1}</span>
                   <span style={{ flex: 1, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
                   <span style={{ width: 44, textAlign: "right", color: "#1AFF8C", fontWeight: 700 }}>{p.wins}</span>
                 </div>
               ))}
             </div>
           )}
-          <p style={{ fontSize: 11, color: "#5a544c", marginTop: 14, textAlign: "center" }}>
+          <p style={{ fontSize: 11, color: "#8d8579", marginTop: 14, textAlign: "center" }}>
             Ranked by wins. Names aren't verified — friendly bragging rights only.
             Level 5 wins are self-reported by the browser, so they're the loosest of all.
           </p>
@@ -617,13 +617,13 @@ export default function GomokuAI() {
   if (screen === "waiting") {
     return (
       <div style={wrap}>
-        <button onClick={leaveOnline} style={{ ...ghostBtn, alignSelf: "flex-start" }}>← Cancel</button>
+        <button onClick={leaveOnline} className="glass glass-btn" style={{ ...ghostBtn, alignSelf: "flex-start" }}>← Cancel</button>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 18 }}>
           <div style={label}>Share this code</div>
           <button onClick={copyCode} style={{ fontSize: 48, fontWeight: 800, letterSpacing: "0.15em", color: "#1AFF8C", background: "transparent", border: "none", cursor: "pointer" }}>
             {code}
           </button>
-          <div style={{ fontSize: 13, color: "#9b948a" }}>{copied ? "Copied!" : "Tap the code to copy"}</div>
+          <div style={{ fontSize: 13, color: "#b5aea2" }}>{copied ? "Copied!" : "Tap the code to copy"}</div>
           <div style={{ fontSize: 14, color: "#f2ede4", marginTop: 10 }}>Waiting for your opponent to join…</div>
           {netError && <div style={{ color: "#e0533a", fontSize: 12 }}>{netError}</div>}
         </div>
@@ -709,7 +709,7 @@ export default function GomokuAI() {
     <div style={wrap}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", maxWidth: 472, marginBottom: 14 }}>
         <button onClick={mode === "online" ? leaveOnline : () => setScreen("lobby")} className="glass glass-btn" style={ghostBtn}>← Menu</button>
-        <div style={{ fontSize: 12, color: "#9b948a" }}>
+        <div style={{ fontSize: 12, color: "#b5aea2" }}>
           {mode === "ai" ? <>You: <b style={{ color: "#f2ede4" }}>{humanColor === "black" ? "Black" : "White"}</b> · <b style={{ color: "#1AFF8C" }}>L{level}</b></>
             : mode === "online" ? <>Code <b style={{ color: "#1AFF8C", letterSpacing: "0.1em" }}>{code}</b> · You: <b style={{ color: "#f2ede4" }}>{onlineColor === "black" ? "Black" : "White"}</b></>
             : "Two players"}
@@ -726,19 +726,19 @@ export default function GomokuAI() {
           <img src={skin[g.turn]} alt="" onError={() => setSkinBroken(true)}
             style={{ width: 20, height: 20, objectFit: "contain" }} />
         ) : (
-          <span style={{ width: 16, height: 16, borderRadius: "50%", background: g.turn === "black" ? "#15110d" : "#f2ede4", border: "1px solid #6b645b" }} />
+          <span style={{ width: 16, height: 16, borderRadius: "50%", background: g.turn === "black" ? "#15110d" : "#f2ede4", border: "1px solid #9c9488" }} />
         ))}
         <span style={{ fontWeight: 600, fontSize: 15, color: g.winner ? "#1AFF8C" : "#f2ede4" }}>{status}</span>
       </div>
 
-      <div className="glass" style={{ fontSize: 12, marginBottom: 10, padding: "6px 14px", borderRadius: 999, textAlign: "center", color: ruleNote ? "#ff8f7a" : pending ? "#1AFF8C" : "#c9c3b8" }}>
+      <div style={{ fontSize: 12, marginBottom: 12, maxWidth: 340, textAlign: "center", lineHeight: 1.45, color: ruleNote ? "#ff9d8a" : pending ? "#1AFF8C" : "#a49d92" }}>
         {ruleNote || (pending ? "Slide to aim — lift to place." : "No double three, unless it blocks a five — ✕ marks a point you can't take.")}
       </div>
 
       {mode === "online" && g.players?.white && (
-        <div style={{ fontSize: 12, color: "#9b948a", marginBottom: 14 }}>
+        <div style={{ fontSize: 12, color: "#b5aea2", marginBottom: 14 }}>
           You <b style={{ color: "#f2ede4" }}>{myWins}</b> – <b style={{ color: "#f2ede4" }}>{oppWins}</b> {oppName}
-          {rec.draws ? <span style={{ color: "#6b645b" }}> · {rec.draws} draw{rec.draws > 1 ? "s" : ""}</span> : null}
+          {rec.draws ? <span style={{ color: "#9c9488" }}> · {rec.draws} draw{rec.draws > 1 ? "s" : ""}</span> : null}
         </div>
       )}
 
@@ -765,7 +765,7 @@ export default function GomokuAI() {
             <button onClick={rematchOnline} className="glass glass-btn glass-accent" style={primaryBtnSm}>Rematch</button>
           ) : (
             <button onClick={resignOnline} disabled={!g.players?.white}
-              style={{ ...secondaryBtn, width: "auto", padding: "10px 20px", fontSize: 14, opacity: g.players?.white ? 1 : 0.5 }}>
+              className="glass glass-btn" style={{ ...secondaryBtn, width: "auto", padding: "10px 20px", fontSize: 14, opacity: g.players?.white ? 1 : 0.5 }}>
               Resign
             </button>
           )
@@ -773,26 +773,26 @@ export default function GomokuAI() {
           <button onClick={rematch} className="glass glass-btn glass-accent" style={primaryBtnSm}>New game</button>
         ) : (
           <button onClick={undo} disabled={g.history.length === 0 || thinking}
-            style={{ ...secondaryBtn, width: "auto", padding: "10px 20px", fontSize: 14, opacity: g.history.length === 0 || thinking ? 0.5 : 1 }}>
+            className="glass glass-btn" style={{ ...secondaryBtn, width: "auto", padding: "10px 20px", fontSize: 14, opacity: g.history.length === 0 || thinking ? 0.5 : 1 }}>
             Undo
           </button>
         )}
         {mode === "ai" && (g.winner || g.history.length === 0) && (
-          <button onClick={swapSides} style={{ ...secondaryBtn, width: "auto", padding: "10px 20px", fontSize: 14 }}>
+          <button onClick={swapSides} className="glass glass-btn" style={{ ...secondaryBtn, width: "auto", padding: "10px 20px", fontSize: 14 }}>
             Swap sides
           </button>
         )}
       </div>
 
-      <p style={{ fontSize: 12, color: "#6b645b", marginTop: 18, maxWidth: 360, textAlign: "center" }}>
-        Move {g.history.length} · Freestyle rules · Black moves first
+      <p style={{ fontSize: 12, color: "#8d8579", marginTop: 18, maxWidth: 360, textAlign: "center" }}>
+        Move {g.history.length} · Five or more wins · No double three · Black moves first
       </p>
     </div>
   );
 }
 
 const wrap = { minHeight: "100vh", background: "var(--app-bg, #1a1816)", color: "#f2ede4", fontFamily: "'Inter', system-ui, sans-serif", display: "flex", flexDirection: "column", alignItems: "center", padding: "24px 16px", boxSizing: "border-box", position: "relative", zIndex: 1 };
-const label = { fontSize: 11, color: "#9b948a", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 };
+const label = { fontSize: 11, color: "#b5aea2", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 };
 const primaryBtn = { width: "100%", padding: "14px 20px", borderRadius: 14, color: "#0d1a12", fontSize: 16, fontWeight: 700, cursor: "pointer" };
 const primaryBtnSm = { ...primaryBtn, width: "auto", padding: "10px 20px", fontSize: 14 };
 const secondaryBtn = { width: "100%", padding: "12px 20px", borderRadius: 14, color: "#f2ede4", fontSize: 15, fontWeight: 600, cursor: "pointer" };

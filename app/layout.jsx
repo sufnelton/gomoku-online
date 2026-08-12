@@ -18,10 +18,10 @@ const themeCss = `
     background: rgba(255, 255, 255, 0.07);
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.12);
     box-shadow:
       0 8px 32px rgba(0, 0, 0, 0.38),
-      inset 0 1px 0 rgba(255, 255, 255, 0.30),
+      inset 0 1px 0 rgba(255, 255, 255, 0.20),
       inset 0 -1px 0 rgba(0, 0, 0, 0.18);
     position: relative;
     overflow: hidden;
@@ -31,8 +31,8 @@ const themeCss = `
     content: "";
     position: absolute;
     inset: 0 0 auto 0;
-    height: 45%;
-    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0));
+    height: 38%;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0));
     pointer-events: none;
   }
   .glass > * { position: relative; }
