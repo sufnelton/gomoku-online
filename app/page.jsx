@@ -848,7 +848,7 @@ export default function GomokuAI() {
   );
 }
 
-const wrap = { minHeight: "100vh", background: "var(--app-bg, #1a1816)", color: "#f2ede4", fontFamily: "'Inter', system-ui, sans-serif", display: "flex", flexDirection: "column", alignItems: "center", padding: "24px 16px", boxSizing: "border-box", position: "relative", zIndex: 1 };
+const wrap = { minHeight: "100vh", background: "var(--app-bg, #1a1816)", color: "#f2ede4", fontFamily: "'Inter', system-ui, sans-serif", display: "flex", flexDirection: "column", alignItems: "center", padding: "24px 16px calc(24px + var(--player-gap, 0px))", boxSizing: "border-box", position: "relative", zIndex: 1 };
 const label = { fontSize: 11, color: "var(--txt-2)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 };
 const primaryBtn = { width: "100%", padding: "14px 20px", borderRadius: 14, color: "#0d1a12", fontSize: 16, fontWeight: 700, cursor: "pointer" };
 const primaryBtnSm = { ...primaryBtn, width: "auto", padding: "10px 20px", fontSize: 14 };

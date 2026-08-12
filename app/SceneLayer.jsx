@@ -1,24 +1,23 @@
 "use client";
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import * as sfx from "./sfx.js";
+import MusicPlayer from "./MusicPlayer.jsx";
 
-/* Animated background + looping music, shared by every screen.
- * Keeps its own state so it can live in the layout rather than being threaded
- * through the game component. The page reads --app-bg, which turns into a
- * translucent scrim while the scene is on so the UI stays readable. */
+/* Animated background + the sound controls, shared by every screen. Keeps its
+ * own state so it can live in the layout rather than being threaded through the
+ * game component. The page reads --app-bg, which turns into a translucent scrim
+ * while the scene is on so the UI stays readable.
+ *
+ * Music itself lives in MusicPlayer: it went from one toggle to a player with
+ * transport controls and two tracks, which is no longer this layer's business. */
 
 const VIDEO = "/bg/room.mp4";
 const POSTER = "/bg/room-poster.jpg";
-const MUSIC = "/audio/theme.m4a";
 
 export default function SceneLayer() {
   const [sceneOn, setSceneOn] = useState(true);
-  const [musicOn, setMusicOn] = useState(false);
-  const [musicMissing, setMusicMissing] = useState(false);
-  const [sfxOn, setSfxOn] = useState(true);
   const [reduced, setReduced] = useState(false);
-  const audioRef = useRef(null);
-  const seeded = useRef(false);
+  const [sfxOn, setSfxOn] = useState(true);
 
   useEffect(() => {
     const m = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -33,6 +32,11 @@ export default function SceneLayer() {
     if (s !== null) setSceneOn(s === "1");
   }, []);
 
+  useEffect(() => {
+    document.body.dataset.scene = sceneOn ? "on" : "off";
+    localStorage.setItem("gomoku_scene", sceneOn ? "1" : "0");
+  }, [sceneOn]);
+
   // Effects are separate from the music: the theme is a bed you opt into, the
   // move and result sounds are the game telling you what happened, so they
   // default on and get their own switch.
@@ -40,32 +44,6 @@ export default function SceneLayer() {
   const toggleSfx = useCallback(() => {
     setSfxOn((on) => { sfx.setMuted(on); return !on; });
   }, []);
-
-  useEffect(() => {
-    document.body.dataset.scene = sceneOn ? "on" : "off";
-    localStorage.setItem("gomoku_scene", sceneOn ? "1" : "0");
-  }, [sceneOn]);
-
-  // Music only ever starts from a click: browsers block autoplay with sound,
-  // and a game that makes noise on load without being asked is obnoxious.
-  const toggleMusic = useCallback(() => {
-    const a = audioRef.current;
-    if (!a) return;
-    if (musicOn) { a.pause(); setMusicOn(false); return; }
-    a.volume = 0.35;
-    // Drop in at a random point of the hour-long mix so it isn't the same
-    // opening bars every visit. Duration is unknown until metadata arrives,
-    // which with preload="none" only happens once play() kicks off the load.
-    if (!seeded.current) {
-      seeded.current = true;
-      const jump = () => {
-        if (a.duration && isFinite(a.duration)) a.currentTime = Math.random() * a.duration * 0.97;
-      };
-      if (a.readyState >= 1) jump();
-      else a.addEventListener("loadedmetadata", jump, { once: true });
-    }
-    a.play().then(() => setMusicOn(true)).catch(() => setMusicMissing(true));
-  }, [musicOn]);
 
   const btn = (active) => ({
     width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center",
@@ -95,27 +73,20 @@ export default function SceneLayer() {
         </div>
       )}
 
-      <audio ref={audioRef} src={MUSIC} loop preload="none" onError={() => setMusicMissing(true)} />
-
       <div style={{ position: "fixed", top: 12, right: 12, zIndex: 20, display: "flex", gap: 8 }}>
         <button className="glass glass-btn" onClick={() => setSceneOn((v) => !v)} style={btn(sceneOn)}
           title={sceneOn ? "Hide background" : "Show background"}
           aria-label={sceneOn ? "Hide background" : "Show background"}>
           {sceneOn ? "🌿" : "▢"}
         </button>
-        {!musicMissing && (
-          <button className="glass glass-btn" onClick={toggleMusic} style={btn(musicOn)}
-            title={musicOn ? "Mute music" : "Play music"}
-            aria-label={musicOn ? "Mute music" : "Play music"}>
-            {musicOn ? "♪" : "🔇"}
-          </button>
-        )}
         <button className="glass glass-btn" onClick={toggleSfx} style={btn(sfxOn)}
           title={sfxOn ? "Mute sound effects" : "Unmute sound effects"}
           aria-label={sfxOn ? "Mute sound effects" : "Unmute sound effects"}>
           {sfxOn ? "🔔" : "🔕"}
         </button>
       </div>
+
+      <MusicPlayer />
     </>
   );
 }

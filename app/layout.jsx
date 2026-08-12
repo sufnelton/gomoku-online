@@ -95,6 +95,51 @@ const themeCss = `
     .glass::before { display: none; }
   }
 
+  /* Music player. A bar across the bottom on a phone, a small pill tucked into
+     the bottom-right corner once there is room beside the board. --player-gap
+     is reserved at every width so nothing can ever end up underneath it; on
+     desktop that costs a strip of empty page, which is cheaper than a footer
+     hiding behind a floating control. */
+  :root { --player-gap: 74px; }
+  .player {
+    position: fixed; z-index: 20; bottom: 12px; left: 12px; right: 12px;
+    display: flex; align-items: center; gap: 9px;
+    padding: 7px 8px 7px 12px; border-radius: 14px;
+  }
+  @media (min-width: 900px) {
+    .player { left: auto; right: 12px; width: 196px; }
+  }
+  .player-name {
+    flex: 1; min-width: 0; font-size: 12px; font-weight: 600; color: #e7e2d8;
+    letter-spacing: 0.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .player-btn {
+    flex: 0 0 auto; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+    border-radius: 10px; cursor: pointer; color: #e7e2d8;
+    background: rgba(255, 255, 255, 0.09); border: 1px solid rgba(255, 255, 255, 0.14);
+    transition: background 140ms ease, color 140ms ease, transform 100ms ease;
+  }
+  .player-btn:hover { background: rgba(26, 255, 140, 0.16); color: #1AFF8C; }
+  .player-btn:active { transform: scale(0.92); }
+  .player-btn:disabled { opacity: 0.4; cursor: default; }
+
+  /* Three bars that bounce while something is playing and lie flat when it is
+     not, so the player reads as on or off at a glance without a second label. */
+  .eq { flex: 0 0 auto; display: flex; align-items: flex-end; gap: 2px; height: 14px; }
+  .eq i { width: 3px; height: 100%; border-radius: 2px; background: #1AFF8C; transform-origin: bottom;
+          transform: scaleY(0.18); transition: transform 200ms ease; }
+  .eq[data-on="1"] i { animation: eq 900ms ease-in-out infinite; }
+  .eq[data-on="1"] i:nth-child(2) { animation-delay: 150ms; }
+  .eq[data-on="1"] i:nth-child(3) { animation-delay: 300ms; }
+  .eq[data-on="0"] i { background: #7d7669; }
+  @keyframes eq {
+    0%, 100% { transform: scaleY(0.3); }
+    50%      { transform: scaleY(1); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .eq[data-on="1"] i { animation: none; transform: scaleY(0.75); }
+  }
+
   /* Stones settle in when placed. The keyframes carry the centring transform,
      since animating transform would otherwise drop it mid-flight. */
   @keyframes pieceIn {
