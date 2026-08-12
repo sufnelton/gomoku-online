@@ -37,16 +37,16 @@ const Cell = React.memo(function Cell({ r, c, cell, isLast, isWin, isBanned, can
         </span>
       )}
       {!cell && ghostColor && (
-        <span style={{ position: "absolute", top: "50%", left: "50%", width: "100%", aspectRatio: "1 / 1", transform: "translate(-50%, -50%)",
-          borderRadius: "50%", border: "1.5px dashed rgba(26,255,140,.9)", zIndex: 3 }} />
+        <span style={{ position: "absolute", top: "50%", left: "50%", width: "112%", aspectRatio: "1 / 1", transform: "translate(-50%, -50%)",
+          borderRadius: "50%", border: "2px solid #1AFF8C", boxShadow: "0 0 10px rgba(26,255,140,.55)", zIndex: 3 }} />
       )}
       {!cell && ghostColor && (ghostSrc ? (
         <img src={ghostSrc} alt="" aria-hidden="true" draggable={false}
           style={{ position: "absolute", top: "50%", left: "50%", width: "93%", aspectRatio: "1 / 1", transform: "translate(-50%, -50%)",
-            objectFit: "contain", opacity: 0.45, zIndex: 2 }} />
+            objectFit: "contain", opacity: 0.6, zIndex: 2 }} />
       ) : (
         <span aria-hidden="true" style={{ position: "absolute", top: "50%", left: "50%", width: "80%", aspectRatio: "1 / 1", borderRadius: "50%",
-          transform: "translate(-50%, -50%)", opacity: 0.45, zIndex: 2,
+          transform: "translate(-50%, -50%)", opacity: 0.6, zIndex: 2,
           background: ghostColor === "black" ? "radial-gradient(circle at 35% 30%, #4a443c, #15110d)" : "radial-gradient(circle at 35% 30%, #ffffff, #cfc7ba)" }} />
       ))}
       {isStar && !cell && !ghostColor && !isBanned && (
@@ -292,14 +292,27 @@ export default function GomokuAI() {
   const canClickRef = useRef(false);
   const setGhost = useCallback((p) => { pendingRef.current = p; setPending(p); }, []);
 
+  // How far above the fingertip the target sits, in cells. Expressed in cells
+  // rather than pixels so it holds at any board size: the board is fluid, so a
+  // fixed pixel lift would be a whole row on a phone and half of one on a
+  // desktop.
+  const AIM_LIFT_CELLS = 1.5;
+
   const cellFromTouch = useCallback((t) => {
     const el = gridRef.current;
     if (!el) return null;
     const box = el.getBoundingClientRect();
-    const c = Math.floor(((t.clientX - box.left) / box.width) * SIZE);
-    const r = Math.floor(((t.clientY - box.top) / box.height) * SIZE);
-    if (r < 0 || r >= SIZE || c < 0 || c >= SIZE) return null;
-    return { r, c };
+    const cell = box.height / SIZE;
+    // A thumb is wider than a cell and sits on top of what it is aiming at, so
+    // the target is lifted clear of it.
+    const y = t.clientY - cell * AIM_LIFT_CELLS;
+    const rawC = ((t.clientX - box.left) / box.width) * SIZE;
+    const rawR = ((y - box.top) / box.height) * SIZE;
+    // Slop lets you aim the top rows with the thumb below the board edge, but
+    // wandering well off the board still cancels rather than snapping.
+    if (rawR < -2 || rawR > SIZE + 2 || rawC < -2 || rawC > SIZE + 2) return null;
+    const clamp = (v) => Math.max(0, Math.min(SIZE - 1, Math.floor(v)));
+    return { r: clamp(rawR), c: clamp(rawC) };
   }, []);
 
   const aim = useCallback((e) => {
@@ -665,22 +678,6 @@ export default function GomokuAI() {
       <div ref={gridRef} className="noselect"
         style={{ display: "grid", gridTemplateColumns: `repeat(${SIZE}, 1fr)`, position: "relative",
           touchAction: coarse ? "none" : "manipulation" }}>
-        {pending && (
-          <div style={{
-            position: "absolute", left: `${((pending.c + 0.5) / SIZE) * 100}%`, top: `${((pending.r + 0.5) / SIZE) * 100}%`,
-            transform: "translate(-50%, -50%) translateY(-48px)", pointerEvents: "none", zIndex: 10,
-            width: 54, height: 54, borderRadius: "50%", background: "rgba(22,20,18,.94)",
-            border: "1.5px solid rgba(26,255,140,.9)", boxShadow: "0 6px 18px rgba(0,0,0,.5)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            {skin[g.turn] ? (
-              <img src={skin[g.turn]} alt="" draggable={false} style={{ width: 38, height: 38, objectFit: "contain" }} />
-            ) : (
-              <span style={{ width: 32, height: 32, borderRadius: "50%",
-                background: g.turn === "black" ? "radial-gradient(circle at 35% 30%, #4a443c, #15110d)" : "radial-gradient(circle at 35% 30%, #ffffff, #cfc7ba)" }} />
-            )}
-          </div>
-        )}
         {g.board.map((row, r) =>
           row.map((cell, c) => {
             const key = `${r},${c}`;
@@ -733,7 +730,7 @@ export default function GomokuAI() {
       <div style={{ fontSize: 12, marginBottom: 12, maxWidth: 340, textAlign: "center", lineHeight: 1.45,
         minHeight: "2.9em", display: "flex", alignItems: "center", justifyContent: "center",
         color: ruleNote ? "#ff9d8a" : pending ? "#1AFF8C" : "#a49d92" }}>
-        {ruleNote || (pending ? "Slide to aim — lift to place." : "No double three, unless it blocks a five — ✕ marks a point you can't take.")}
+        {ruleNote || (pending ? "Aiming above your thumb — slide, then lift to place." : "No double three, unless it blocks a five — ✕ marks a point you can't take.")}
       </div>
 
       {mode === "online" && g.players?.white && (
