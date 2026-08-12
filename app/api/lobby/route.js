@@ -12,6 +12,7 @@ const ERR_STATUS = {
   not_your_turn: 409,
   occupied: 409,
   forbidden: 409,
+  bad_pass: 403,
   game_over: 409,
   no_opponent: 409,
   not_a_player: 403,
@@ -47,8 +48,8 @@ export async function POST(req) {
   const code = (body.code || "").toUpperCase();
   if (!playerId) return NextResponse.json({ error: "bad_request" }, { status: 400 });
   switch (action) {
-    case "create": return out(await createLobby(playerId, body.name));
-    case "join": return out(await joinLobby(playerId, body.name, code));
+    case "create": return out(await createLobby(playerId, body.name, body.pass));
+    case "join": return out(await joinLobby(playerId, body.name, code, body.pass));
     case "move": return out(await moveInLobby(playerId, code, body.r, body.c));
     case "rematch": return out(await rematchLobby(playerId, code));
     case "resign": return out(await resignLobby(playerId, code));

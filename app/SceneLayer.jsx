@@ -16,6 +16,7 @@ export default function SceneLayer() {
   const [musicMissing, setMusicMissing] = useState(false);
   const [reduced, setReduced] = useState(false);
   const audioRef = useRef(null);
+  const seeded = useRef(false);
 
   useEffect(() => {
     const m = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -42,6 +43,17 @@ export default function SceneLayer() {
     if (!a) return;
     if (musicOn) { a.pause(); setMusicOn(false); return; }
     a.volume = 0.35;
+    // Drop in at a random point of the hour-long mix so it isn't the same
+    // opening bars every visit. Duration is unknown until metadata arrives,
+    // which with preload="none" only happens once play() kicks off the load.
+    if (!seeded.current) {
+      seeded.current = true;
+      const jump = () => {
+        if (a.duration && isFinite(a.duration)) a.currentTime = Math.random() * a.duration * 0.97;
+      };
+      if (a.readyState >= 1) jump();
+      else a.addEventListener("loadedmetadata", jump, { once: true });
+    }
     a.play().then(() => setMusicOn(true)).catch(() => setMusicMissing(true));
   }, [musicOn]);
 

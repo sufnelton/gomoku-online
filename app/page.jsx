@@ -20,7 +20,7 @@ const Cell = React.memo(function Cell({ r, c, cell, isLast, isWin, isBanned, can
   const isStar = (r === 3 || r === 7 || r === 11) && (c === 3 || c === 7 || c === 11);
   return (
     <button onClick={() => onPick(r, c)}
-      style={{ width: 30, height: 30, padding: 0, border: "none", background: "transparent", touchAction: "manipulation",
+      style={{ width: "100%", aspectRatio: "1 / 1", padding: 0, border: "none", background: "transparent", touchAction: "manipulation",
         cursor: canClick && !cell ? "pointer" : "default", position: "relative" }}
       aria-label={`row ${r + 1} column ${c + 1}`}>
       <span style={{ position: "absolute", left: 0, right: 0, top: "50%", height: 1, background: "#8a6f43", transform: "translateY(-50%)",
@@ -29,7 +29,7 @@ const Cell = React.memo(function Cell({ r, c, cell, isLast, isWin, isBanned, can
         clipPath: r === 0 ? "inset(50% 0 0 0)" : r === SIZE - 1 ? "inset(0 0 50% 0)" : "none" }} />
       {isBanned && (
         <span aria-label="forbidden: double three" style={{
-          position: "absolute", top: "50%", left: "50%", width: 14, height: 14, transform: "translate(-50%, -50%)",
+          position: "absolute", top: "50%", left: "50%", width: "47%", aspectRatio: "1 / 1", transform: "translate(-50%, -50%)",
           borderRadius: "50%", border: "1.5px solid rgba(196,58,42,.85)", background: "rgba(196,58,42,.14)", zIndex: 1,
         }}>
           <span style={{ position: "absolute", top: "50%", left: "50%", width: 12, height: 1.5, background: "rgba(196,58,42,.95)", transform: "translate(-50%,-50%) rotate(45deg)" }} />
@@ -37,32 +37,32 @@ const Cell = React.memo(function Cell({ r, c, cell, isLast, isWin, isBanned, can
         </span>
       )}
       {!cell && ghostColor && (
-        <span style={{ position: "absolute", top: "50%", left: "50%", width: 30, height: 30, transform: "translate(-50%, -50%)",
+        <span style={{ position: "absolute", top: "50%", left: "50%", width: "100%", aspectRatio: "1 / 1", transform: "translate(-50%, -50%)",
           borderRadius: "50%", border: "1.5px dashed rgba(26,255,140,.9)", zIndex: 3 }} />
       )}
       {!cell && ghostColor && (ghostSrc ? (
         <img src={ghostSrc} alt="" aria-hidden="true"
-          style={{ position: "absolute", top: "50%", left: "50%", width: 28, height: 28, transform: "translate(-50%, -50%)",
+          style={{ position: "absolute", top: "50%", left: "50%", width: "93%", aspectRatio: "1 / 1", transform: "translate(-50%, -50%)",
             objectFit: "contain", opacity: 0.45, zIndex: 2 }} />
       ) : (
-        <span aria-hidden="true" style={{ position: "absolute", top: "50%", left: "50%", width: 24, height: 24, borderRadius: "50%",
+        <span aria-hidden="true" style={{ position: "absolute", top: "50%", left: "50%", width: "80%", aspectRatio: "1 / 1", borderRadius: "50%",
           transform: "translate(-50%, -50%)", opacity: 0.45, zIndex: 2,
           background: ghostColor === "black" ? "radial-gradient(circle at 35% 30%, #4a443c, #15110d)" : "radial-gradient(circle at 35% 30%, #ffffff, #cfc7ba)" }} />
       ))}
       {isStar && !cell && !ghostColor && !isBanned && (
-        <span style={{ position: "absolute", top: "50%", left: "50%", width: 6, height: 6, borderRadius: "50%", background: "#8a6f43", transform: "translate(-50%, -50%)" }} />
+        <span style={{ position: "absolute", top: "50%", left: "50%", width: "20%", aspectRatio: "1 / 1", borderRadius: "50%", background: "#8a6f43", transform: "translate(-50%, -50%)" }} />
       )}
       {cell && (skinSrc ? (
         <img className="pc" src={skinSrc} alt={cell} onError={onSkinError}
           style={{
-            position: "absolute", top: "50%", left: "50%", width: 28, height: 28, transform: "translate(-50%, -50%)",
+            position: "absolute", top: "50%", left: "50%", width: "93%", aspectRatio: "1 / 1", transform: "translate(-50%, -50%)",
             objectFit: "contain", zIndex: 2,
             filter: isWin ? "drop-shadow(0 0 4px #1AFF8C) drop-shadow(0 0 2px #1AFF8C)" : "drop-shadow(0 1px 2px rgba(0,0,0,.55))",
             outline: isLast && !isWin ? "2px solid #e0533a" : "none", outlineOffset: -1, borderRadius: 4,
           }} />
       ) : (
         <span className="pc" style={{
-          position: "absolute", top: "50%", left: "50%", width: 24, height: 24, borderRadius: "50%", transform: "translate(-50%, -50%)",
+          position: "absolute", top: "50%", left: "50%", width: "80%", aspectRatio: "1 / 1", borderRadius: "50%", transform: "translate(-50%, -50%)",
           background: cell === "black" ? "radial-gradient(circle at 35% 30%, #4a443c, #15110d)" : "radial-gradient(circle at 35% 30%, #ffffff, #cfc7ba)",
           boxShadow: isWin ? "0 0 0 2px #1AFF8C, 0 0 8px #1AFF8C" : "0 1px 3px rgba(0,0,0,.5)",
           outline: isLast && !isWin ? "2px solid #e0533a" : "none", outlineOffset: -2, zIndex: 2,
@@ -120,6 +120,8 @@ export default function GomokuAI() {
 
   // leaderboard
   const [leaderboard, setLeaderboard] = useState([]);
+  const [cpuBoard, setCpuBoard] = useState([]);
+  const [pass, setPass] = useState("");
   const [lbLoading, setLbLoading] = useState(false);
 
   const wide = useIsWide();
@@ -342,6 +344,20 @@ export default function GomokuAI() {
 
   useEffect(() => { setRuleNote(""); setPending(null); }, [g.history.length, screen, mode]);
 
+  // Beating the computer on level 5 is the only computer result worth a board.
+  const reportedRef = useRef(false);
+  useEffect(() => { reportedRef.current = false; }, [g.history.length === 0]);
+  useEffect(() => {
+    if (mode !== "ai" || level !== 5 || g.winner !== humanColor) return;
+    if (reportedRef.current || !name.trim()) return;
+    reportedRef.current = true;
+    fetch("/api/leaderboard", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, level: 5 }),
+    }).catch(() => {});
+  }, [g.winner, mode, level, humanColor, name]);
+
   const start = (m) => { setMode(m); setG(freshGame()); setThinking(false); setScreen("game"); setRuleNote(""); };
 
   const undo = useCallback(() => {
@@ -362,7 +378,7 @@ export default function GomokuAI() {
   const createOnline = async () => {
     setNetError("");
     try {
-      const data = await api({ action: "create", name });
+      const data = await api({ action: "create", name, pass });
       setMode("online"); setCode(data.code); setG(data.state);
       localStorage.setItem("gomoku_code", data.code);
       setScreen("waiting");
@@ -374,7 +390,7 @@ export default function GomokuAI() {
     if (c.length < 4) { setNetError("Enter the 4-letter code"); return; }
     setNetError("");
     try {
-      const data = await api({ action: "join", code: c, name });
+      const data = await api({ action: "join", code: c, name, pass });
       setMode("online"); setCode(c); setG(data.state);
       localStorage.setItem("gomoku_code", c);
       setScreen(data.state.players.white ? "game" : "waiting");
@@ -403,7 +419,8 @@ export default function GomokuAI() {
       const res = await fetch("/api/leaderboard?top=20");
       const d = await res.json();
       setLeaderboard(d.leaderboard || []);
-    } catch { setLeaderboard([]); }
+      setCpuBoard(d.cpu || []);
+    } catch { setLeaderboard([]); setCpuBoard([]); }
     finally { setLbLoading(false); }
   };
 
@@ -432,6 +449,12 @@ export default function GomokuAI() {
 
           <div>
             <div style={label}>Play online</div>
+            <input
+              value={pass}
+              onChange={(e) => setPass(e.target.value.slice(0, 32))}
+              placeholder="Passphrase (optional) — keeps strangers out"
+              style={{ width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 9, border: "1px solid #3a3530", background: "#262320", color: "#f2ede4", fontSize: 14, marginBottom: 8 }}
+            />
             <button onClick={createOnline} style={primaryBtn}>Create game · get a code</button>
             <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
               <input
@@ -565,8 +588,25 @@ export default function GomokuAI() {
               ))}
             </div>
           )}
+          <div style={{ ...label, marginTop: 26 }}>Beat the computer · level 5</div>
+          {cpuBoard.length === 0 ? (
+            <div style={{ color: "#9b948a", fontSize: 13, textAlign: "center", padding: 20, border: "1px solid #3a3530", borderRadius: 10 }}>
+              Nobody has beaten level 5 yet.
+            </div>
+          ) : (
+            <div style={{ border: "1px solid #3a3530", borderRadius: 10, overflow: "hidden" }}>
+              {cpuBoard.map((p, i) => (
+                <div key={p.name + i} style={{ display: "flex", alignItems: "center", padding: "11px 14px", borderTop: i ? "1px solid #2a2723" : "none", fontSize: 14, color: "#f2ede4" }}>
+                  <span style={{ width: 32, fontWeight: 700, color: i === 0 ? "#1AFF8C" : "#6b645b" }}>{i + 1}</span>
+                  <span style={{ flex: 1, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
+                  <span style={{ width: 44, textAlign: "right", color: "#1AFF8C", fontWeight: 700 }}>{p.wins}</span>
+                </div>
+              ))}
+            </div>
+          )}
           <p style={{ fontSize: 11, color: "#5a544c", marginTop: 14, textAlign: "center" }}>
             Ranked by wins. Names aren't verified — friendly bragging rights only.
+            Level 5 wins are self-reported by the browser, so they're the loosest of all.
           </p>
         </div>
       </div>
@@ -620,7 +660,8 @@ export default function GomokuAI() {
   const oppWins = onlineColor === "black" ? rec.white : rec.black;
 
   const boardEl = (
-    <div style={{ background: "#d8b878", padding: 14, borderRadius: 8, boxShadow: "0 8px 30px rgba(0,0,0,.5)", opacity: thinking ? 0.85 : 1 }}>
+    <div style={{ background: "#d8b878", padding: "min(14px, 3%)", borderRadius: 8, boxShadow: "0 8px 30px rgba(0,0,0,.5)", opacity: thinking ? 0.85 : 1,
+      width: "min(478px, 100%)", boxSizing: "border-box", margin: "0 auto" }}>
       <div ref={gridRef}
         onTouchStart={aim} onTouchMove={aim} onTouchEnd={release} onTouchCancel={() => setGhost(null)}
         style={{ display: "grid", gridTemplateColumns: `repeat(${SIZE}, 1fr)`, position: "relative",
