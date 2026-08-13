@@ -12,7 +12,7 @@ const freshGame = () => freshGameState("black");
 // missing the board falls back to classic stones rather than rendering blanks.
 const SKINS = {
   classic: { id: "classic", name: "Classic", black: null, white: null },
-  maple: { id: "maple", name: "Maple", black: "/pieces/slime.png", white: "/pieces/mushroom.png" },
+  maple: { id: "maple", name: "Maple", black: "/pieces/mushroom.png", white: "/pieces/slime.png" },
 };
 
 /* One intersection. Memoised on primitives so a move re-renders the two cells
