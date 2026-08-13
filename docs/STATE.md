@@ -4,6 +4,9 @@ Live: https://gomoku-online-kappa.vercel.app · repo `sufnelton/gomoku-online` �
 
 **Status:** shipped and playable. Elton + Joey are playing it on phones.
 
+Sound (move / start / win / lose, 🔔 toggle), two music tracks behind a player,
+a game archive, and an engine rebuild are all in.
+
 ---
 
 ## Rules in force
@@ -32,30 +35,89 @@ parameter internally because the strength tests pit configurations against each
 other, but nothing offers a choice.
 
 - Incremental evaluation: placing a stone rescores only the windows through it, not the board.
-- VCF, then VCT (Allis threat-space search) for forced wins.
-- Iterative deepening alpha-beta, killer moves, Zobrist transposition table.
+- Gain cache: `ordered()` scores every neighbour and keeps 4–12, so scores are cached against a content hash of each cell's neighbourhood — XORed in on place, out on unplace, so a sibling move still hits after a round-trip.
+- Lines load once as two ready-made colour views (`C1`/`C2`) rather than being re-converted per colour inside the scoring loop.
+- VCF, then VCT (Allis threat-space search) for forced wins. **Defence now runs VCT too**, not just VCF — a threat sequence built on threes used to be invisible.
+- Iterative deepening alpha-beta, killer moves, Zobrist transposition table **that survives across moves** (probe ignores generation; an entry from an older move is always free to evict).
 - Runs in a Web Worker (`app/ai.worker.js`) with a main-thread fallback and a 15s watchdog.
-- Budget 2200ms.
+- Budget 2200ms, depth ceiling 16.
 
-**Measured, not asserted.** `scripts/tourney.mjs`, 16 paired games with colours
-swapped: VCT on/off **8–5**, transposition table on/off **10–5**. A straight
-head-to-head is worthless here — black's first-move advantage decides it.
+**Measured, not asserted.** Two harnesses, and neither replaces the other:
+
+- `scripts/bench.mjs` — nodes and completed depth in a fixed budget. Wall-clock is the wrong instrument: the engine spends a budget rather than racing a clock, so a faster engine finishes in the same seconds having searched more.
+- `scripts/tourney.mjs` — 16 paired games, colours swapped. The only thing that measures *strength*. `--vs-base` scores a whole engine against a copy at `lib/_baseline_ai.js` instead of a config flag.
+- `scripts/profile.mjs` — `--cpu-prof` self-time per function, for finding what is actually hot.
+
+Past results: VCT on/off **8–5**, transposition table on/off **10–5**.
+
+A straight head-to-head is worthless here — black's first-move advantage decides it.
+
+### 2026-08-12: the speed rebuild bought depth and **no strength**
+
+This is the important entry in this file. The rebuild is real and measured:
+**+123% nodes/sec and +1.67 ply** at an identical depth ceiling, **+2.33 ply**
+with the ceiling lifted 10 → 16. Then 16 paired games against the shipped
+engine, each change isolated:
+
+| config | vs shipped baseline |
+|---|---|
+| speed work only (2× nodes, +1.67 ply) | **6–8** |
+| + depth ceiling 16 | **6–8** |
+| + defensive VCT | **6–8** |
+| + transposition table across moves | **7–7** |
+| all three at once | **4–8** |
+
+Not one of them is an improvement. All are within noise of even at this sample
+size — 14 decisive games cannot resolve a small edge, and none of these is a
+large one — but there is **no evidence that any amount of extra depth makes
+this bot harder**.
+
+That is the answer to "how do we make it as hard as possible", and it is not
+the answer that was expected going in. The evaluation function is the binding
+constraint. Every leaf trusts nineteen hand-picked pattern weights and a `1.12`
+defence multiplier, so searching deeper only computes their errors more
+precisely. Depth is not the lever. **Weights are.**
+
+What shipped: the speed work, at the proven defaults (`depth: 10`, defensive
+VCT off, table cleared per move). It is free, it is transparent — `gains`
+returns identical numbers cached or cold, and there is a test that says so —
+and it is what makes weight-tuning runs affordable. The three behavioural
+changes stay behind `opts.depth`, `opts.counterVct` and `opts.ttPersist` with
+their results recorded above, so nobody re-runs these experiments by accident.
+
+## Game archive (`lib/archive.js`)
+
+The last 5 finished games, in `localStorage` on the device. A game **is** its
+move list, so archiving is a JSON write and replay is the same reconstruction
+loop `undo()` already used, with an index.
+
+Three rules that are load-bearing rather than cosmetic:
+
+- **The archived result is frozen.** Continuing a game forks a new one that earns its own row. Undoing a loss into a win would make the record mean nothing.
+- **A forked game never reports to the leaderboard**, or "beat the computer" becomes "undo until you beat the computer".
+- **An online game replays but cannot resume as an online game** — the lobby is gone and the opponent is not there, so it continues against the computer.
+
+It is a personal log, not a ranking: it follows the browser, not the player, and
+it is deliberately not the server leaderboard, which is cross-player and
+name-based. That makes three separate records in the app; they will not agree.
 
 ## Left off
 
-Everything asked for is shipped. Open threads, most valuable first:
+Open threads, most valuable first:
 
-1. **Re-test the thinking budget.** The worker means a longer search costs nothing in UI smoothness, and the table multiplies what extra time buys. An early 4-game test said 5000ms was *worse*; the 16-game harness later showed that test was noise. Unsettled, and cheap to settle: `node scripts/tourney.mjs` with NEW/OLD as budgets.
-2. **Evaluation function.** The pattern weights are hand-picked guesses. Every leaf trusts them, so they cap what depth is worth.
-3. **Opening book.** No book, and the eval is weakest before patterns exist — the first ~6 moves are the same every game and learnable by a human.
+1. **Evaluation function — this is now the only thread that matters.** The measurements above rule out depth as the lever and point squarely here. Nineteen pattern weights and a `1.12` defence multiplier, all guessed. `tourney.mjs` scores a weight set exactly the way it scores a flag, and the speed work makes each run cheaper. Start by perturbing the four largest weights and the multiplier one at a time.
+2. **A bigger harness before trusting any of this.** 16 paired games cannot separate engines that are close, which is why five runs above all landed 6–8 / 7–7. Anything that looks like a small edge needs 48+ games before it is a result rather than a coin flip.
+3. **Opening book.** No book, and the eval is weakest before patterns exist — the first ~6 moves are the same every game and learnable by a human. The archive is now a free source of real openings for it.
 4. **Proof-number search**, the other half of Allis's method.
+5. **`branch: 12` and the `cap = max(4, branch - ply)` narrowing** were never measured. They were plausible numbers, and everything plausible in this engine has now been wrong at least once.
 
-Deliberately not done: rebalancing levels 1–3 (removed instead), game review UI.
+Deliberately not done: rebalancing levels 1–3 (removed instead).
 
 ## Unresolved
 
 - **Strangers are finishing games on the public URL** — `PreflightAlice`, `Guest`, `Matt` on the leaderboard. Nothing identifying is stored; the app records no IP, no user agent. Lobbies now take an optional passphrase, but only ones created since.
 - **Whether the background video costs mobile performance** was never confirmed. The 🌿 toggle exists to test it.
+- **`public/audio/ost.m4a` is 76MB**, past GitHub's 50MB warning line. Deliberate — the full 2h42m compilation at the same 64k AAC as the lofi mix — but it is permanent in history now, and a third long track would be the point to move audio out of the repo.
 
 ## Hard-won details worth not rediscovering
 
@@ -63,6 +125,10 @@ Deliberately not done: rebalancing levels 1–3 (removed instead), game review U
 - The "board bounces on drag" bug was **not** overscroll — the hint line above the board swapped between one and two lines of text as the ghost cleared, and the layout reflowed. It now reserves two lines' height.
 - Four separate browser defaults fight a drag gesture: image dragging, text selection, the iOS long-press callout, and page scroll. All four are handled.
 - Stripping opaque fills from shared button styles broke every button that takes them by **spread** rather than by reference — they fell back to white browser chrome.
+- **Optimising this engine by eye has a bad record.** "The candidate rescan is the bottleneck" was wrong — `neighbors()` was 2.4% of thinking time and `windowSum` plus its helpers were 73%. Profile first (`scripts/profile.mjs`), and measure the fix in nodes and depth, never in seconds.
+- **Faster is not stronger.** Doubling the nodes and adding 1.67 ply changed nothing a tourney could see. A speed win is a means to cheaper experiments here, not a strength win, and it must never be reported as one.
+- **A persistent transposition table needs the AI colour in its key.** Stored values are `evalFor(st, ai)`, signed from the AI's side; without `AI_KEY` a swapped-sides game reads them back inverted.
+- **Depth-preferred replacement alone made the persistent table *worse*** (−0.33 ply). One search nearly fills the 262k slots, so last move's deep entries locked this move's out. An entry from an older move must always be free to evict.
 - The shared button styles carry `width: 100%`, and that keeps biting. A spread that forgot to override it made Join claim the whole row and squeeze the code field to a sliver **on Safari only** — Chrome resolves the squeeze against the input's min-content width, Safari doesn't. Any `...secondaryBtn` inside a flex row needs `width: "auto"`.
 - Text greys tuned against the flat `#1a1816` background wash out over the scene, which is a photograph rather than a dark field. Lifting the greys is not enough on its own (a lifted grey still measures ~2.3:1 on the bright sky); the per-glyph dark halo on `body[data-scene="on"]` is what carries them. Both live in `themeCss` as `--txt-2/3/4`.
 - Mate scores must never enter the transposition table: they carry the ply they were found at.

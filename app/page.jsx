@@ -4,6 +4,7 @@ import { SIZE, emptyBoard, findWin, other, applyMove, freshGameState, isForbidde
 import { chooseMove } from "../lib/ai.js";
 import ChatPanel from "./ChatPanel.jsx";
 import * as sfx from "./sfx.js";
+import { loadGames, saveGame, tally, stateAt, resumeFrom, LIMIT as LAST_N } from "../lib/archive.js";
 
 const freshGame = () => freshGameState("black");
 
@@ -98,7 +99,7 @@ async function postLobby(body) {
 }
 
 export default function GomokuAI() {
-  const [screen, setScreen] = useState("lobby"); // lobby | waiting | game | leaderboard
+  const [screen, setScreen] = useState("lobby"); // lobby | waiting | game | leaderboard | history | review
   const [mode, setMode] = useState("ai");        // ai | local | online
   const level = 5; // only the strongest engine is offered
   const [humanColor, setHumanColor] = useState("black");
@@ -109,6 +110,12 @@ export default function GomokuAI() {
   const [skinBroken, setSkinBroken] = useState(false);
   const [pending, setPending] = useState(null); // touch: ghost stone awaiting confirmation
   const [coarse, setCoarse] = useState(false);
+
+  // past games (this device only)
+  const [games, setGames] = useState([]);
+  const [review, setReview] = useState(null); // the archived game being replayed
+  const [ply, setPly] = useState(0);          // how far into it we are looking
+  const [forked, setForked] = useState(false); // continued from an archived game
 
   // online
   const [name, setName] = useState("");
@@ -171,6 +178,8 @@ export default function GomokuAI() {
     const saved = localStorage.getItem("gomoku_skin");
     if (saved && SKINS[saved]) setSkinId(saved);
   }, []);
+
+  useEffect(() => { setGames(loadGames()); }, []);
 
   // Confirm-tap is about pointing precision, not screen size, so key it off
   // pointer type: a finger gets the ghost, a mouse keeps single-click.
@@ -384,10 +393,12 @@ export default function GomokuAI() {
   useEffect(() => { setRuleNote(""); setPending(null); }, [g.history.length, screen, mode]);
 
   // Beating the computer on level 5 is the only computer result worth a board.
+  // A forked game never counts: otherwise "beat the computer" degrades into
+  // "undo until you beat the computer".
   const reportedRef = useRef(false);
   useEffect(() => { reportedRef.current = false; }, [g.history.length === 0]);
   useEffect(() => {
-    if (mode !== "ai" || level !== 5 || g.winner !== humanColor) return;
+    if (forked || mode !== "ai" || level !== 5 || g.winner !== humanColor) return;
     if (reportedRef.current || !name.trim()) return;
     reportedRef.current = true;
     fetch("/api/leaderboard", {
@@ -395,7 +406,24 @@ export default function GomokuAI() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, level: 5 }),
     }).catch(() => {});
-  }, [g.winner, mode, level, humanColor, name]);
+  }, [g.winner, mode, level, humanColor, name, forked]);
+
+  /* Archive the game the moment it ends. Latched on a ref rather than derived
+   * state: the online poll re-delivers a finished game every 1.2s, and each
+   * delivery would otherwise be a fresh row. */
+  const archivedRef = useRef(false);
+  useEffect(() => { if (!g.winner) archivedRef.current = false; }, [g.winner]);
+  useEffect(() => {
+    if (screen !== "game" || !g.winner || archivedRef.current) return;
+    archivedRef.current = true;
+    setGames(saveGame(g, {
+      mode,
+      // Two players on one device has no "you" to score the row from.
+      youAre: mode === "ai" ? humanColor : mode === "online" ? onlineColor : null,
+      forked,
+      finishedAt: Date.now(),
+    }));
+  }, [g, screen, mode, humanColor, onlineColor, forked]);
 
   /* Sound. Driven off game state rather than the click handlers so all three
    * modes are covered by one rule each — the computer's reply and an
@@ -441,7 +469,26 @@ export default function GomokuAI() {
     return () => clearTimeout(t);
   }, [g.winner, screen, mode, humanColor, onlineColor]);
 
-  const start = (m) => { setMode(m); setG(freshGame()); setThinking(false); setScreen("game"); setRuleNote(""); };
+  const start = (m) => { setMode(m); setG(freshGame()); setThinking(false); setScreen("game"); setRuleNote(""); setForked(false); };
+
+  const openHistory = () => { setGames(loadGames()); setScreen("history"); };
+  const openReview = (gm) => { setReview(gm); setPly(gm.history.length); setScreen("review"); };
+
+  /* Pick a finished game back up. An online game cannot resume as an online
+   * game -- the lobby is gone and the opponent is not here -- so it continues
+   * against the computer, from the side that player had. The archived row is
+   * untouched; this is a new game that will earn its own. */
+  const continueFrom = (gm, at) => {
+    const resumeMode = gm.mode === "online" ? "ai" : gm.mode;
+    if (gm.youAre) setHumanColor(gm.youAre);
+    setMode(resumeMode);
+    setG(resumeFrom(gm, at));
+    setForked(true);
+    setThinking(false);
+    setRuleNote("");
+    setReview(null);
+    setScreen("game");
+  };
 
   const undo = useCallback(() => {
     if (thinking || mode === "online") return;
@@ -454,8 +501,8 @@ export default function GomokuAI() {
     });
   }, [thinking, mode, aiColor, humanColor]);
 
-  const rematch = () => { setG(freshGame()); setThinking(false); };
-  const swapSides = () => { setHumanColor((c) => other(c)); setG(freshGame()); setThinking(false); };
+  const rematch = () => { setG(freshGame()); setThinking(false); setForked(false); };
+  const swapSides = () => { setHumanColor((c) => other(c)); setG(freshGame()); setThinking(false); setForked(false); };
 
   // online actions
   const createOnline = async () => {
@@ -586,7 +633,12 @@ export default function GomokuAI() {
             {skinBroken && <div style={{ color: "#e0533a", fontSize: 12, marginTop: 8 }}>Maple pieces missing — using classic stones.</div>}
           </div>
 
-          <button onClick={openLeaderboard} className="glass glass-btn" style={secondaryBtn}>🏆 Leaderboard</button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={openLeaderboard} className="glass glass-btn" style={{ ...secondaryBtn, flex: 1 }}>🏆 Leaderboard</button>
+            <button onClick={openHistory} className="glass glass-btn" style={{ ...secondaryBtn, flex: 1 }}>
+              ⏱ Recent{games.length ? ` (${games.length})` : ""}
+            </button>
+          </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 12, color: "var(--txt-4)", fontSize: 12 }}>
             <div style={{ flex: 1, height: 1, background: "#3a3530" }} /> OR <div style={{ flex: 1, height: 1, background: "#3a3530" }} />
@@ -673,6 +725,143 @@ export default function GomokuAI() {
             Level 5 wins are self-reported by the browser, so they're the loosest of all.
           </p>
         </div>
+      </div>
+    );
+  }
+
+  // ---------- HISTORY (last games, this device) ----------
+  if (screen === "history") {
+    const t = tally(games);
+    return (
+      <div style={wrap}>
+        <div style={{ width: "100%", maxWidth: 440, display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+          <button onClick={() => setScreen("lobby")} className="glass glass-btn" style={ghostBtn}>← Menu</button>
+          <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Recent games</h1>
+          <div style={{ width: 52 }} />
+        </div>
+
+        <div style={{ width: "100%", maxWidth: 440 }}>
+          {games.length === 0 ? (
+            <div className="glass" style={{ color: "var(--txt-2)", fontSize: 14, textAlign: "center", padding: 30, borderRadius: 14 }}>
+              No finished games yet. The last {LAST_N} played on this device show up here.
+            </div>
+          ) : (
+            <>
+              <div className="glass" style={{ display: "flex", borderRadius: 14, overflow: "hidden", marginBottom: 14 }}>
+                {[["Won", t.wins, "#1AFF8C"], ["Lost", t.losses, "#e0533a"], ["Drawn", t.draws, "var(--txt-2)"]].map(([k, v, col], i) => (
+                  <div key={k} style={{ flex: 1, padding: "12px 8px", textAlign: "center", borderLeft: i ? "1px solid rgba(255,255,255,.10)" : "none" }}>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: col }}>{v}</div>
+                    <div style={{ fontSize: 10, color: "var(--txt-3)", letterSpacing: "0.09em", textTransform: "uppercase", marginTop: 2 }}>{k}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="glass" style={{ borderRadius: 14, overflow: "hidden" }}>
+                {games.map((gm, i) => {
+                  const r = resultOf(gm);
+                  return (
+                    <button key={gm.id} onClick={() => openReview(gm)}
+                      style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 14px", cursor: "pointer",
+                        background: "transparent", border: "none", borderTop: i ? "1px solid rgba(255,255,255,.10)" : "none", textAlign: "left" }}>
+                      <span style={{ width: 46, flex: "0 0 auto", fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
+                        textTransform: "uppercase", color: r.color }}>{r.label}</span>
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#f2ede4" }}>
+                          {MODE_NAME[gm.mode] || gm.mode}{gm.forked ? " · continued" : ""}
+                        </span>
+                        <span style={{ display: "block", fontSize: 11, color: "var(--txt-3)", marginTop: 2 }}>
+                          {gm.history.length} moves · {when(gm.finishedAt)}
+                        </span>
+                      </span>
+                      <span style={{ flex: "0 0 auto", fontSize: 12, fontWeight: 600, color: "#1AFF8C" }}>Review →</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+          <p style={{ fontSize: 11, color: "var(--txt-4)", marginTop: 14, textAlign: "center" }}>
+            Kept in this browser only — not the leaderboard, and it won&apos;t follow you to another device.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ---------- REVIEW (replay an archived game) ----------
+  if (screen === "review" && review) {
+    const shown = stateAt(review, ply);
+    const last = shown.history[shown.history.length - 1] || null;
+    const wins = new Set(shown.winLine.map(([r, c]) => `${r},${c}`));
+    const r = resultOf(review);
+    const total = review.history.length;
+    // Resuming from the very start is just a new game, so the floor is one move.
+    const canContinue = ply > 0;
+
+    return (
+      <div style={wrap}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", maxWidth: 472, marginBottom: 14 }}>
+          <button onClick={() => setScreen("history")} className="glass glass-btn" style={ghostBtn}>← Back</button>
+          <div style={{ fontSize: 12, color: "var(--txt-2)" }}>
+            <b style={{ color: r.color }}>{r.label}</b> · {MODE_NAME[review.mode] || review.mode}
+          </div>
+          <div style={{ width: 52 }} />
+        </div>
+
+        <div className="glass" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 18px", borderRadius: 999, marginBottom: 12 }}>
+          <span style={{ fontWeight: 600, fontSize: 15, color: "#f2ede4" }}>
+            Move {ply} of {total}
+          </span>
+        </div>
+
+        <div style={{ background: "#d8b878", padding: "min(14px, 3%)", borderRadius: 8, boxShadow: "0 8px 30px rgba(0,0,0,.5)",
+          width: "min(478px, 100%)", boxSizing: "border-box", margin: "0 auto" }}>
+          <div className="noselect" style={{ display: "grid", gridTemplateColumns: `repeat(${SIZE}, 1fr)`, position: "relative" }}>
+            {shown.board.map((row, rr) =>
+              row.map((cell, cc) => {
+                const key = `${rr},${cc}`;
+                return (
+                  <Cell key={key} r={rr} c={cc} cell={cell}
+                    isLast={!!last && last.r === rr && last.c === cc}
+                    isWin={wins.has(key)}
+                    isBanned={false}
+                    canClick={false}
+                    skinSrc={cell ? skin[cell] : null}
+                    ghostColor={null} ghostSrc={null}
+                    onPick={noop} onSkinError={onSkinError}
+                  />
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 10, width: "min(478px, 100%)", marginTop: 16 }}>
+          <button onClick={() => setPly((p) => Math.max(0, p - 1))} disabled={ply === 0}
+            className="glass glass-btn" style={{ ...ghostBtn, opacity: ply === 0 ? 0.4 : 1, minWidth: 44 }} aria-label="Previous move">‹</button>
+          <input type="range" min={0} max={total} value={ply}
+            onChange={(e) => setPly(Number(e.target.value))}
+            aria-label="Move" style={{ flex: 1, minWidth: 0, accentColor: "#1AFF8C" }} />
+          <button onClick={() => setPly((p) => Math.min(total, p + 1))} disabled={ply === total}
+            className="glass glass-btn" style={{ ...ghostBtn, opacity: ply === total ? 0.4 : 1, minWidth: 44 }} aria-label="Next move">›</button>
+        </div>
+
+        <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
+          <button onClick={() => setPly(total)} className="glass glass-btn"
+            style={{ ...secondaryBtn, width: "auto", flex: "0 0 auto", padding: "10px 20px", fontSize: 14 }}>
+            End
+          </button>
+          <button onClick={() => continueFrom(review, ply - 1)} disabled={!canContinue}
+            className="glass glass-btn glass-accent" style={{ ...primaryBtnSm, opacity: canContinue ? 1 : 0.4 }}>
+            Take that move back
+          </button>
+        </div>
+
+        <p style={{ fontSize: 12, color: "var(--txt-4)", marginTop: 18, maxWidth: 380, textAlign: "center" }}>
+          {review.mode === "online"
+            ? "Continuing plays on against the computer — the online game is over and your opponent isn't here."
+            : "Continuing starts a new game from this point. This result stays on the record either way."}
+        </p>
       </div>
     );
   }
@@ -846,6 +1035,31 @@ export default function GomokuAI() {
       </p>
     </div>
   );
+}
+
+const noop = () => {};
+
+const MODE_NAME = { ai: "vs Computer", local: "Two players", online: "Online" };
+
+/* How an archived game reads on its row. A game with no "you" -- two players on
+ * one device -- names the winning colour instead of claiming a result. */
+function resultOf(gm) {
+  if (!gm.winner) return { label: "Unfin.", color: "var(--txt-3)" };
+  if (gm.winner === "draw") return { label: "Draw", color: "var(--txt-2)" };
+  if (!gm.youAre) return { label: gm.winner === "black" ? "Black" : "White", color: "#f2ede4" };
+  return gm.winner === gm.youAre
+    ? { label: "Won", color: "#1AFF8C" }
+    : { label: "Lost", color: "#e0533a" };
+}
+
+function when(ts) {
+  const mins = Math.floor((Date.now() - ts) / 60000);
+  if (!isFinite(mins) || mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return days === 1 ? "yesterday" : `${days}d ago`;
 }
 
 const wrap = { minHeight: "100vh", background: "var(--app-bg, #1a1816)", color: "#f2ede4", fontFamily: "'Inter', system-ui, sans-serif", display: "flex", flexDirection: "column", alignItems: "center", padding: "24px 16px calc(24px + var(--player-gap, 0px))", boxSizing: "border-box", position: "relative", zIndex: 1 };
