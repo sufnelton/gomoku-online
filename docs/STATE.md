@@ -115,7 +115,11 @@ Deliberately not done: rebalancing levels 1–3 (removed instead).
 
 ## Unresolved
 
-- **Strangers are finishing games on the public URL** — `PreflightAlice`, `Guest`, `Matt` on the leaderboard. Nothing identifying is stored; the app records no IP, no user agent. Lobbies now take an optional passphrase, but only ones created since.
+- ~~**Strangers are finishing games on the public URL**~~ — **cause found and fixed 2026-08-13.** `publicView` stripped the passphrase but kept `players`, and a `playerId` is the *only* credential any write action checks. `GET /api/lobby?code=XXXX` needed no authentication, so anyone holding a code — 331,776 of them, sweepable, no rate limit — could read both ids and then move, chat, resign or rematch as either player. The passphrase did not help: it gates `join`, and none of this required joining. Verified against production before the fix by posting chat and resigning a locked lobby with nothing but its code.
+
+  The fix: `players` never leaves the server (occupancy comes back as `seats`, your own side as `youAre`), the unauthenticated `GET` is gone entirely and polling is an authenticated `POST` so the id never lands in a URL or a log, and both routes carry Redis-backed per-IP limits — 300/min overall, 30/min on `create`/`join`, which are the only actions that accept a code you were never given. A sweep now takes about a week per IP. `lib/lobby.test.js` has a `what a client is allowed to see` block that fails if any id ever appears in a payload again.
+
+  Still true: names are whatever people type, chat is readable by the other player, and the leaderboard is name-keyed and unverifiable. Nothing identifying beyond that is stored — no IP, no user agent — though Vercel's own platform logs exist independently of this code.
 - **Whether the background video costs mobile performance** was never confirmed. The 🌿 toggle exists to test it.
 - **`public/audio/ost.m4a` is 76MB**, past GitHub's 50MB warning line. Deliberate — the full 2h42m compilation at the same 64k AAC as the lofi mix — but it is permanent in history now, and a third long track would be the point to move audio out of the repo.
 

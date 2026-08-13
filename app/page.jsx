@@ -134,10 +134,11 @@ export default function GomokuAI() {
 
   const wide = useIsWide();
   const aiColor = other(humanColor);
-  const onlineColor = g.players
-    ? (g.players.black === playerIdRef.current ? "black"
-      : g.players.white === playerIdRef.current ? "white" : null)
-    : null;
+  // The server no longer hands out player ids -- they are the credential -- so
+  // it reports our colour instead. Held in state rather than derived, and
+  // refreshed from every authenticated reply, because a rematch swaps sides
+  // and the other player only learns that from their next poll.
+  const [onlineColor, setOnlineColor] = useState(null);
   const oppName = (g.names ? (onlineColor === "black" ? g.names.white : g.names.black) : null) || "Opponent";
 
   useEffect(() => { versionRef.current = g.version || 0; }, [g.version]);
@@ -146,23 +147,23 @@ export default function GomokuAI() {
 
   const reconnect = useCallback(async (c) => {
     try {
-      const res = await fetch(`/api/lobby?code=${c}`);
-      if (!res.ok) { localStorage.removeItem("gomoku_code"); return; }
-      const data = await res.json();
-      const pid = playerIdRef.current;
-      const color = data.state.players.black === pid ? "black"
-        : data.state.players.white === pid ? "white" : null;
+      const data = await postLobby({ action: "state", code: c, playerId: playerIdRef.current });
+      const color = data?.state?.youAre;
       if (!color) { localStorage.removeItem("gomoku_code"); return; }
-      setMode("online"); setCode(c); setG(data.state);
-      setScreen(data.state.players.white ? "game" : "waiting");
-    } catch { /* offline; ignore */ }
+      setMode("online"); setCode(c); setG(data.state); setOnlineColor(color);
+      setScreen(data.state.seats.white ? "game" : "waiting");
+    } catch {
+      // not_a_player or gone: the saved code is no longer ours to rejoin.
+      localStorage.removeItem("gomoku_code");
+    }
   }, []);
 
   // identity + saved name + reconnect on first load
   useEffect(() => {
     let id = localStorage.getItem("gomoku_pid");
     if (!id) {
-      id = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      id = (globalThis.crypto?.randomUUID?.())
+        || (Math.random().toString(36).slice(2) + Date.now().toString(36));
       localStorage.setItem("gomoku_pid", id);
     }
     playerIdRef.current = id;
@@ -260,15 +261,19 @@ export default function GomokuAI() {
     let active = true;
     const tick = async () => {
       try {
-        const res = await fetch(`/api/lobby?code=${code}&v=${versionRef.current}`);
-        if (res.status === 204) return;
-        if (res.status === 404) { if (active) setNetError("Lobby expired or not found"); return; }
-        const data = await res.json();
-        if (active && data.state) {
-          setG(data.state);
-          if (data.state.players.white) setScreen("game");
+        const data = await postLobby({
+          action: "state", code, playerId: playerIdRef.current, v: versionRef.current,
+        });
+        if (!active || !data?.state) return; // 204: nothing changed
+        setG(data.state);
+        if (data.state.youAre) setOnlineColor(data.state.youAre); // a rematch swaps sides
+        if (data.state.seats.white) setScreen("game");
+      } catch (e) {
+        if (active && (e.message === "not_found" || e.message === "not_a_player")) {
+          setNetError("Lobby expired or not found");
         }
-      } catch { /* transient; retry next tick */ }
+        // anything else is transient; retry next tick
+      }
     };
     tick();
     const iv = setInterval(tick, 1200);
@@ -278,7 +283,7 @@ export default function GomokuAI() {
   const human = useCallback((r, c) => {
     if (g.winner || g.board[r][c]) return;
     if (mode === "ai" && (thinking || g.turn !== humanColor)) return;
-    if (mode === "online" && (g.turn !== onlineColor || !g.players?.white)) return;
+    if (mode === "online" && (g.turn !== onlineColor || !g.seats?.white)) return;
     if (isForbidden(g.board, r, c, g.turn)) {
       setRuleNote("Double three — two open threes at once, and it isn't stopping a five.");
       return;
@@ -286,7 +291,7 @@ export default function GomokuAI() {
     setRuleNote("");
     if (mode === "online") {
       api({ action: "move", code, r, c })
-        .then((d) => d && setG(d.state))
+        .then((d) => { if (d?.state) { setG(d.state); if (d.state.youAre) setOnlineColor(d.state.youAre); } })
         .catch((e) => { if (e.message === "forbidden") setRuleNote("Double three — not allowed."); });
       return;
     }
@@ -368,7 +373,7 @@ export default function GomokuAI() {
   const markColor = g.winner ? null
     : mode === "local" ? g.turn
     : mode === "ai" ? (g.turn === humanColor && !thinking ? humanColor : null)
-    : (g.turn === onlineColor && g.players?.white ? onlineColor : null);
+    : (g.turn === onlineColor && g.seats?.white ? onlineColor : null);
 
   // Scanning the board for forbidden points is the most expensive thing per
   // move. Run it after the frame that paints the stone, so placing never waits
@@ -444,7 +449,7 @@ export default function GomokuAI() {
   // A fresh board on the game screen: first game, rematch, swapped sides, or an
   // online opponent finally joining.
   const emptyBoardShown = g.history.length === 0;
-  const opponentHere = mode !== "online" || !!g.players?.white;
+  const opponentHere = mode !== "online" || !!g.seats?.white;
   const startedRef = useRef(false);
   useEffect(() => {
     // Latched rather than fired straight off the deps: React's dev double-invoke
@@ -509,7 +514,7 @@ export default function GomokuAI() {
     setNetError("");
     try {
       const data = await api({ action: "create", name, pass });
-      setMode("online"); setCode(data.code); setG(data.state);
+      setMode("online"); setCode(data.code); setG(data.state); setOnlineColor(data.color);
       localStorage.setItem("gomoku_code", data.code);
       setScreen("waiting");
     } catch { setNetError("Could not create a game. Try again."); }
@@ -521,9 +526,9 @@ export default function GomokuAI() {
     setNetError("");
     try {
       const data = await api({ action: "join", code: c, name, pass });
-      setMode("online"); setCode(c); setG(data.state);
+      setMode("online"); setCode(c); setG(data.state); setOnlineColor(data.color);
       localStorage.setItem("gomoku_code", c);
-      setScreen(data.state.players.white ? "game" : "waiting");
+      setScreen(data.state.seats.white ? "game" : "waiting");
     } catch (e) {
       setNetError(
         e.message === "full" ? "That game already has two players"
@@ -535,13 +540,18 @@ export default function GomokuAI() {
 
   const leaveOnline = () => {
     localStorage.removeItem("gomoku_code");
-    setCode(""); setJoinInput(""); setNetError(""); setMode("ai");
+    setCode(""); setJoinInput(""); setNetError(""); setMode("ai"); setOnlineColor(null);
     setG(freshGame()); setScreen("lobby");
   };
 
-  const resignOnline = () => api({ action: "resign", code }).then((d) => d && setG(d.state)).catch(() => {});
-  const rematchOnline = () => api({ action: "rematch", code }).then((d) => d && setG(d.state)).catch(() => {});
-  const sendChat = (text) => api({ action: "chat", code, text }).then((d) => d && setG(d.state)).catch(() => {});
+  const applyState = (d) => {
+    if (!d?.state) return;
+    setG(d.state);
+    if (d.state.youAre) setOnlineColor(d.state.youAre);
+  };
+  const resignOnline = () => api({ action: "resign", code }).then(applyState).catch(() => {});
+  const rematchOnline = () => api({ action: "rematch", code }).then(applyState).catch(() => {});
+  const sendChat = (text) => api({ action: "chat", code, text }).then(applyState).catch(() => {});
 
   const openLeaderboard = async () => {
     setScreen("leaderboard"); setLbLoading(true);
@@ -889,7 +899,7 @@ export default function GomokuAI() {
   const winSet = new Set(g.winLine.map(([r, c]) => `${r},${c}`));
   let status;
   if (mode === "online") {
-    if (!g.players?.white) status = "Waiting for opponent…";
+    if (!g.seats?.white) status = "Waiting for opponent…";
     else if (g.winner === "draw") status = "Draw — board full";
     else if (g.winner) status = g.endReason === "resign"
       ? (g.winner === onlineColor ? `${oppName} resigned — you win!` : "You resigned")
@@ -904,7 +914,7 @@ export default function GomokuAI() {
   const canClick = !g.winner && (
     mode === "local" ? true
     : mode === "ai" ? (!thinking && g.turn === humanColor)
-    : (g.turn === onlineColor && !!g.players?.white)
+    : (g.turn === onlineColor && !!g.seats?.white)
   );
   canClickRef.current = canClick;
 
@@ -973,7 +983,7 @@ export default function GomokuAI() {
         {ruleNote || (pending ? "Aiming above your thumb — slide, then lift to place." : "No double three, unless it blocks a five — ✕ marks a point you can't take.")}
       </div>
 
-      {mode === "online" && g.players?.white && (
+      {mode === "online" && g.seats?.white && (
         <div style={{ fontSize: 12, color: "var(--txt-2)", marginBottom: 14 }}>
           You <b style={{ color: "#f2ede4" }}>{myWins}</b> – <b style={{ color: "#f2ede4" }}>{oppWins}</b> {oppName}
           {rec.draws ? <span style={{ color: "var(--txt-3)" }}> · {rec.draws} draw{rec.draws > 1 ? "s" : ""}</span> : null}
@@ -991,7 +1001,7 @@ export default function GomokuAI() {
             myColor={onlineColor}
             names={g.names}
             onSend={sendChat}
-            disabled={!g.players?.white}
+            disabled={!g.seats?.white}
             height={wide ? 478 : 240}
           />
         )}
@@ -1002,8 +1012,8 @@ export default function GomokuAI() {
           g.winner ? (
             <button onClick={rematchOnline} className="glass glass-btn glass-accent" style={primaryBtnSm}>Rematch</button>
           ) : (
-            <button onClick={resignOnline} disabled={!g.players?.white}
-              className="glass glass-btn" style={{ ...secondaryBtn, width: "auto", padding: "10px 20px", fontSize: 14, opacity: g.players?.white ? 1 : 0.5 }}>
+            <button onClick={resignOnline} disabled={!g.seats?.white}
+              className="glass glass-btn" style={{ ...secondaryBtn, width: "auto", padding: "10px 20px", fontSize: 14, opacity: g.seats?.white ? 1 : 0.5 }}>
               Resign
             </button>
           )
