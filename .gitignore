@@ -2,3 +2,7 @@ node_modules/
 .next/
 .env*.local
 .vercel
+
+# Engine measurement scratch
+.prof/
+lib/_baseline_ai.js
